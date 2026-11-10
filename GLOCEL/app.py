@@ -12,8 +12,15 @@ app.secret_key = os.getenv('SECRET_KEY', 'glocel-secret-change-in-production')
 
 # Database: Render / Supabase / local SQLite
 database_url = os.getenv('DATABASE_URL', 'sqlite:///database.db')
+# Strip surrounding quotes that may come from .env files
+database_url = database_url.strip('"').strip("'")
+# Remove pgbouncer=true (psycopg2 doesn't support it; PgBouncer handles it transparently)
+database_url = database_url.replace('?pgbouncer=true&', '?').replace('?pgbouncer=true', '').replace('&pgbouncer=true', '')
 if database_url.startswith('postgres://'):
     database_url = database_url.replace('postgres://', 'postgresql://', 1)
+# Force psycopg2 driver so SQLAlchemy 2.x doesn't try psycopg3
+if database_url.startswith('postgresql://') and '+' not in database_url.split('://')[0]:
+    database_url = database_url.replace('postgresql://', 'postgresql+psycopg2://', 1)
 
 app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -89,8 +96,8 @@ class Sale(db.Model):
 class SaleItem(db.Model):
     __tablename__ = 'sale_items'
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    sale_id = db.Column(db.Integer, db.ForeignKey('sale.id'), nullable=False)
-    part_id = db.Column(db.Integer, db.ForeignKey('part.id'), nullable=False)
+    sale_id = db.Column(db.Integer, db.ForeignKey('sales.id'), nullable=False)
+    part_id = db.Column(db.Integer, db.ForeignKey('parts.id'), nullable=False)
     part_number = db.Column(db.String(100), default='')
     part_name = db.Column(db.String(200), default='')
     quantity = db.Column(db.Integer, default=0)
