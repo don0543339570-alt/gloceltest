@@ -1,0 +1,99 @@
+{% extends 'base.html' %}
+
+{% block title %}Invoice {{ sale.invoice_number }} - GLOCEL{% endblock %}
+
+{% block content %}
+<div class="invoice-container">
+    <div class="invoice-header text-center mb-4">
+        <h1 class="text-dark">{{ settings.company_name }}</h1>
+        <div class="text-muted small">{{ settings.company_address or '' }}</div>
+        <div class="text-muted small">{{ settings.company_phone or '' }} · {{ settings.company_email or '' }}</div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <h6>INVOICE</h6>
+            <p class="mb-1"><strong>Invoice No:</strong> {{ sale.invoice_number }}</p>
+            <p class="mb-1"><strong>Date:</strong> {{ sale.sale_date }}</p>
+            <p class="mb-1"><strong>Status:</strong> <span class="badge bg-{{ 'success' if sale.payment_status=='Paid' else 'warning' }}">{{ sale.payment_status }}</span></p>
+        </div>
+        <div class="col-md-6 text-end">
+            <h6>Bill To</h6>
+            <p class="mb-1">{{ sale.customer_name or 'Walk-in Customer' }}</p>
+            <p class="mb-1">{{ sale.customer_phone or '' }}</p>
+            <p class="mb-1">{{ sale.customer_email or '' }}</p>
+        </div>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-bordered">
+            <thead class="table-light">
+                <tr>
+                    <th>Part No.</th>
+                    <th>Description</th>
+                    <th class="text-center">Qty</th>
+                    <th class="text-end">Unit Price</th>
+                    <th class="text-end">Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for it in items %}
+                <tr>
+                    <td>{{ it.part_number }}</td>
+                    <td>{{ it.part_name }}</td>
+                    <td class="text-center">{{ it.quantity }}</td>
+                    <td class="text-end">${{ "%.2f"|format(it.unit_price) }}</td>
+                    <td class="text-end">${{ "%.2f"|format(it.line_total) }}</td>
+                </tr>
+                {% endfor %}
+                <tr>
+                    <td colspan="3" class="text-end"><strong>Subtotal</strong></td>
+                    <td class="text-end">${{ "%.2f"|format(sale.subtotal) }}</td>
+                    <td class="text-end">${{ "%.2f"|format(sale.subtotal) }}</td>
+                </tr>
+                <tr>
+                    <td colspan="3" class="text-end"><strong>Tax</strong></td>
+                    <td class="text-end">${{ "%.2f"|format(sale.tax) }}</td>
+                    <td class="text-end">${{ "%.2f"|format(sale.tax) }}</td>
+                </tr>
+                <tr>
+                    <td colspan="3" class="text-end"><strong>Discount</strong></td>
+                    <td class="text-end">${{ "%.2f"|format(sale.discount) }}</td>
+                    <td class="text-end">${{ "%.2f"|format(sale.discount) }}</td>
+                </tr>
+                <tr class="table-dark text-white">
+                    <td colspan="3" class="text-end"><strong>TOTAL</strong></td>
+                    <td class="text-end"></td>
+                    <td class="text-end"><strong>${{ "%.2f"|format(sale.total_amount) }}</strong></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    {% if sale.notes %}
+    <div class="mt-3 p-3 bg-light">
+        <strong>Notes:</strong> {{ sale.notes }}
+    </div>
+    {% endif %}
+
+    <div class="mt-4 text-end">
+        <button onclick="window.print()" class="btn btn-primary"><i class="bi bi-printer"></i> Print Invoice</button>
+        <a href="{{ url_for('sales') }}" class="btn btn-outline-secondary">Back to Sales</a>
+    </div>
+</div>
+
+<style>
+.invoice-container { max-width: 800px; margin: 0 auto; background: #fff; padding: 2rem; }
+.invoice-header h1 { font-size: 2rem; margin-bottom: 0.25rem; }
+@media print {
+    .navbar, footer, .no-print, .btn { display: none !important; }
+    .invoice-container { box-shadow: none; }
+}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Fix status badge variable typo if needed
+</script>
+{% endblock %}

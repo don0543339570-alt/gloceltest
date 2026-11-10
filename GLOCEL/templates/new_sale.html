@@ -1,0 +1,133 @@
+{% extends 'base.html' %}
+
+{% block title %}New Sale / Invoice - GLOCEL{% endblock %}
+
+{% block content %}
+<h2><i class="bi bi-cart-plus"></i> New Sale</h2>
+<p class="text-muted">Select products and quantities. Stock is deducted automatically and an invoice is generated.</p>
+
+<form method="post" class="card p-4 shadow-sm">
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <label class="form-label fw-bold">Customer Name</label>
+            <input type="text" name="customer_name" class="form-control" placeholder="Walk-in Customer">
+        </div>
+        <div class="col-md-4">
+            <label class="form-label fw-bold">Customer Phone</label>
+            <input type="text" name="customer_phone" class="form-control">
+        </div>
+        <div class="col-md-4">
+            <label class="form-label fw-bold">Customer Email</label>
+            <input type="email" name="customer_email" class="form-control">
+        </div>
+        <div class="col-md-3">
+            <label class="form-label fw-bold">Discount</label>
+            <input type="number" name="discount" class="form-control" step="0.01" min="0" value="0">
+        </div>
+        <div class="col-md-3">
+            <label class="form-label fw-bold">Tax (%)</label>
+            <input type="number" name="tax_percent" class="form-control" step="0.01" min="0" value="{{ tax_percent }}">
+        </div>
+    </div>
+
+    <h6>Items in Cart</h6>
+    <div class="table-responsive mb-3">
+        <table class="table table-sm table-bordered" id="itemsTable">
+            <thead class="table-light">
+                <tr>
+                    <th style="width:35%">Part</th>
+                    <th style="width:15%" class="text-end">Selling Price</th>
+                    <th style="width:12%" class="text-end">Qty</th>
+                    <th style="width:15%" class="text-end">Line Total</th>
+                    <th style="width:10%" class="text-end">Stock</th>
+                    <th class="text-end">Action</th>
+                </tr>
+            </thead>
+            <tbody id="itemsBody">
+                {% for p in parts %}
+                <tr class="item-row" data-id="{{ p.id }}">
+                    <td>
+                        <select name="part_id[]" class="form-select part-select" required>
+                            <option value="{{ p.id }}" data-price="{{ p.selling_price }}">{{ p.part_number }} - {{ p.name }}</option>
+                        </select>
+                    </td>
+                    <td class="text-end unit-price" data-price="{{ p.selling_price }}">${{ "%.2f"|format(p.selling_price) }}</td>
+                    <td class="text-end"><input type="number" name="quantity[]" class="form-control form-control-sm qty-input" step="1" min="1" value="1"></td>
+                    <td class="text-end line-total">${{ "%.2f"|format(p.selling_price) }}</td>
+                    <td class="text-end stock-badge">{{ p.stock_quantity }}</td>
+                    <td class="text-end"><button type="button" class="btn btn-sm btn-outline-danger remove-row"><i class="bi bi-trash"></i></button></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="row g-2 mb-3">
+        <div class="col-md-2 d-grid">
+            <button type="button" class="btn btn-outline-secondary w-100" id="addRow"><i class="bi bi-plus"></i> Add Item</button>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label d-block w-100">Notes</label>
+            <textarea name="notes" class="form-control form-control-sm" rows="1"></textarea>
+        </div>
+    </div>
+
+    <div class="text-end">
+        <a href="{{ url_for('sales') }}" class="btn btn-outline-secondary">Cancel</a>
+        <button type="submit" class="btn btn-success"><i class="bi bi-file-earmark-invoice"></i> Complete Sale & Generate Invoice</button>
+    </div>
+</form>
+
+<script>
+const priceMap = {};
+document.querySelectorAll('.part-select').forEach(s => {
+    s.querySelectorAll('option').forEach(o => { priceMap[o.value] = parseFloat(o.dataset.price || 0); });
+});
+
+function setupRow(tr){
+    tr.querySelectorAll('.qty-input').forEach(i => i.addEventListener('input', updateAll));
+    tr.querySelector('.part-select').addEventListener('change', function(){
+        const opt = this.options[this.selectedIndex];
+        const priceCell = tr.querySelector('.unit-price');
+        priceCell.dataset.price = priceMap[opt.value] || 0;
+        priceCell.textContent = (priceMap[opt.value] || 0).toFixed(2);
+        updateAll();
+    });
+    tr.querySelector('.remove-row').addEventListener('click', function(){ tr.remove(); updateAll(); });
+}
+
+function calcRow(row){
+    const price = parseFloat(row.querySelector('.unit-price').dataset.price || 0);
+    const qty = parseInt(row.querySelector('.qty-input').value) || 0;
+    const total = price * qty;
+    row.querySelector('.line-total').textContent = total.toFixed(2);
+    return total;
+}
+function updateAll(){
+    document.querySelectorAll('.item-row').forEach(r => { r.querySelector('.line-total').textContent = calcRow(r).toFixed(2); });
+}
+document.querySelectorAll('.item-row').forEach(setupRow);
+updateAll();
+
+document.getElementById('addRow').addEventListener('click', function(){
+    const tbody = document.getElementById('itemsBody');
+    const tr = document.createElement('tr');
+    tr.className = 'item-row';
+    let options = '';
+    document.querySelector('.part-select').querySelectorAll('option').forEach(o => {
+        options += `<option value="${o.value}" data-price="${o.dataset.price}">${o.text}</option>`;
+    });
+    tr.innerHTML = `
+        <td><select name="part_id[]" class="form-select part-select" required>${options}</select></td>
+        <td class="text-end unit-price" data-price="0">0.00</td>
+        <td class="text-end"><input type="number" name="quantity[]" class="form-control form-control-sm qty-input" step="1" min="1" value="1"></td>
+        <td class="text-end line-total">0.00</td>
+        <td class="text-end stock-badge">-</td>
+        <td class="text-end"><button type="button" class="btn btn-sm btn-outline-danger remove-row"><i class="bi bi-trash"></i></button></td>
+    `;
+    tbody.appendChild(tr);
+    setupRow(tr);
+    updateAll();
+});
+</script>
+{% endblock %}

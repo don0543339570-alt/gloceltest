@@ -1,0 +1,119 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard - GLOCEL{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap align-items-center mb-3">
+    <h2><i class="bi bi-speedometer2"></i> Dashboard</h2>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('add_part') }}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg"></i> Add Part</a>
+        <a href="{{ url_for('scan') }}" class="btn btn-outline-primary btn-sm"><i class="bi bi-camera"></i> Scan</a>
+    </div>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-6 col-md-3">
+        <div class="card bg-primary text-white shadow-sm">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">Total Parts</h6>
+                        <h3 class="mb-0">{{ total_parts }}</h3>
+                    </div>
+                    <div class="align-self-center"><i class="bi bi-box-seam fs-4 opacity-50"></i></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card bg-warning text-dark shadow-sm">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">Low Stock / Reorder</h6>
+                        <h3 class="mb-0">{{ low_stock }}</h3>
+                    </div>
+                    <div class="align-self-center"><i class="bi bi-exclamation-triangle fs-4 opacity-50"></i></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card bg-info text-white shadow-sm">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">Inventory Value</h6>
+                        <h3 class="mb-0">${{ "%.2f"|format(inventory_value) }}</h3>
+                    </div>
+                    <div class="align-self-center"><i class="bi bi-cash-stack fs-4 opacity-50"></i></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card bg-success text-white shadow-sm">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">Total Sales</h6>
+                        <h3 class="mb-0">${{ "%.2f"|format(total_sales) }}</h3>
+                    </div>
+                    <div class="align-self-center"><i class="bi bi-currency-dollar fs-4 opacity-50"></i></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card shadow-sm">
+            <div class="card-header"><strong>Recently Added Parts</strong></div>
+            <div class="card-body p-0">
+                <table class="table table-sm mb-0">
+                    <thead>
+                        <tr><th>S/N</th><th>Part No.</th><th>Name</th><th class="text-end">Sell</th><th class="text-end">Stock</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for p in recent_parts %}
+                        <tr>
+                            <td><span class="badge bg-secondary">{{ p.serial_number }}</span></td>
+                            <td><strong>{{ p.part_number }}</strong></td>
+                            <td>{{ p.name }}</td>
+                            <td class="text-end">${{ "%.2f"|format(p.selling_price) }}</td>
+                            <td class="text-end{% if p.stock_quantity <= p.reorder_level and p.reorder_level > 0 %} text-danger fw-bold{% endif %}">{{ p.stock_quantity }}</td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="5" class="text-center text-muted py-3">No parts yet.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card shadow-sm">
+            <div class="card-header"><strong>Recent Invoices</strong></div>
+            <div class="card-body p-0">
+                <table class="table table-sm mb-0">
+                    <thead>
+                        <tr><th>Invoice</th><th>Customer</th><th class="text-end">Total</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for s in recent_sales %}
+                        <tr>
+                            <td><a href="{{ url_for('view_invoice', sale_id=s.id) }}" class="text-decoration-none">{{ s.invoice_number }}</a></td>
+                            <td>{{ s.customer_name or '-' }}</td>
+                            <td class="text-end">${{ "%.2f"|format(s.total_amount) }}</td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="3" class="text-center text-muted py-3">No invoices yet.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

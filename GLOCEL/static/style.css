@@ -1,0 +1,19 @@
+body {
+    padding-bottom: 70px;
+    font-size: 0.95rem;
+    background: #f8f9fa;
+}
+.navbar-brand { font-weight: 700; letter-spacing: 0.5px; }
+.card { border: none; box-shadow: 0 2px 8px rgba(0,0,0,0.06); border-radius: 10px; }
+.card-header { border-bottom: 1px solid #e9ecef; font-weight: 600; }
+.table thead th { border-top: none; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; }
+.btn { border-radius: 8px; }
+.invoice-container { max-width: 800px; margin: 0 auto; background: #fff; padding: 2rem; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+.invoice-header h1 { font-size: 2rem; margin-bottom: 0.25rem; }
+.sticky-top { z-index: 10; }
+@media print {
+    .navbar, footer, .no-print, .btn { display: none !important; }
+    .invoice-container { box-shadow: none; }
+}
+#reader { border-radius: 8px; overflow: hidden; }
+.stock-badge { font-variant-numeric: tabular-nums; }
