@@ -22,7 +22,7 @@
                 </a>
                 <div class="text-end">
                     <span class="badge bg-danger">{{ p.stock_quantity }} left</span>
-                    <div class="item-meta mt-1">Order <strong>{{ needed }}</strong> &middot; ~${{ "%.2f"|format(needed * (p.total_usd or 0)) }}</div>
+                    <div class="item-meta mt-1">Order <strong>{{ needed }}</strong> &middot; ~{{ (needed * (p.total_local or 0))|money }}</div>
                 </div>
             </div>
             <form action="{{ url_for('restock_part', part_id=p.id) }}" method="post" class="d-flex gap-1 mt-2 no-print">
