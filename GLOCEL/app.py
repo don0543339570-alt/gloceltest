@@ -316,7 +316,7 @@ def calc_costs(form, rate=None):
     selling_price = total_local * (1 + margin / 100.0)
     data.update({
         'total_usd': round(total_local / ex_rate, 2),
-        'exchange_rate': round(ex_rate, 2),
+        'exchange_rate': round(ex_rate, 4),
         'total_local': round(total_local, 2),
         'margin_percent': round(margin, 2),
         'selling_price': round(selling_price, 2),
