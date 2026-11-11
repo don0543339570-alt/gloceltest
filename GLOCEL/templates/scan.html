@@ -1,170 +1,152 @@
 {% extends 'base.html' %}
-
-{% block title %}Camera Scanner - GLOCEL{% endblock %}
-
+{% block title %}Scan - GLOCEL{% endblock %}
 {% block content %}
-<h2><i class="bi bi-camera"></i> Barcode / QR Scanner</h2>
-<p class="text-muted">Scan a part's barcode/QR to look it up and add to cart instantly.</p>
-
-<div class="row">
-    <div class="col-12 col-lg-6">
-        <div class="card shadow-sm">
-            <div class="card-body p-0">
-                <div id="reader" style="width:100%; height:320px; background:#000; border-radius:8px;"></div>
-                <div class="p-3 text-center">
-                    <button class="btn btn-outline-secondary w-100" onclick="toggleScan()"><i class="bi bi-camera-fill"></i> Toggle Camera</button>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="col-12 col-lg-6">
-        <div class="card shadow-sm">
-            <div class="card-header"><strong>Scan Result</strong></div>
-            <div class="card-body">
-                <div id="result" class="text-muted fst-italic">Waiting for scan&hellip;</div>
-                <div class="mt-3" id="partCard" style="display:none;">
-                    <h6 id="resPartNumber" class="mb-1"></h6>
-                    <p class="mb-1" id="resName"></p>
-                    <p class="mb-2"><strong>Selling:</strong> <span id="resPrice"></span> &bull; <strong>Stock:</strong> <span id="resStock"></span></p>
-                    <button id="btnAddCart" class="btn btn-success w-100"><i class="bi bi-cart-plus"></i> Add 1 to Cart</button>
-                    <a href="#" class="btn btn-outline-primary w-100 mt-2"><i class="bi bi-pencil"></i> Edit Part</a>
-                </div>
-                <div class="mt-3">
-                    <hr>
-                    <h6>Or enter manually:</h6>
-                    <input type="text" id="manualCode" class="form-control form-control-sm mb-2" placeholder="Item number or Part No.">
-                    <button class="btn btn-outline-primary w-100 btn-sm" onclick="lookupManual()"><i class="bi bi-search"></i> Lookup</button>
-                </div>
-            </div>
-        </div>
-    </div>
+<div class="page-head">
+    <div><h1><i class="bi bi-upc-scan"></i> Scan</h1><div class="sub">Scan a barcode / QR code or type an item number to look up a part and add it to the cart.</div></div>
 </div>
 
-<div class="row mt-4">
-    <div class="col-12">
-        <div class="card shadow-sm">
-            <div class="card-header"><strong>Current Cart</strong></div>
+<div class="row g-3">
+    <div class="col-12 col-lg-6">
+        <div class="card">
             <div class="card-body">
+                <div id="reader"></div>
+                <div id="cameraHint" class="small text-muted text-center mt-2">Camera needs HTTPS and permission. Tap start to scan.</div>
+                <button class="btn btn-primary w-100 mt-2" id="toggleScan"><i class="bi bi-camera-fill"></i> <span>Start camera</span></button>
+                <form class="input-group mt-3" id="manualForm">
+                    <input type="text" id="manualCode" class="form-control" placeholder="Item number or part no." autocapitalize="characters" autocomplete="off">
+                    <button class="btn btn-outline-primary"><i class="bi bi-search"></i> Look up</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-lg-6">
+        <div class="card mb-3">
+            <div class="card-header">Result</div>
+            <div class="card-body">
+                <div id="result" class="text-muted">Waiting for a scan&hellip;</div>
+                <div id="partCard" hidden>
+                    <div class="item-title fs-5" id="resName"></div>
+                    <div class="item-meta mb-2" id="resPartNumber"></div>
+                    <div class="d-flex justify-content-between mb-3">
+                        <span class="amount fs-5" id="resPrice"></span>
+                        <span class="badge bg-light text-dark border align-self-center" id="resStock"></span>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button id="btnAddCart" class="btn btn-success flex-grow-1"><i class="bi bi-cart-plus"></i> Add 1 to cart</button>
+                        <a href="#" id="btnEdit" class="btn btn-outline-secondary"><i class="bi bi-pencil"></i> Edit</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>Cart</span>
                 {% if cart %}
-                <div class="table-responsive">
-                    <table class="table table-sm align-middle">
-                        <thead class="table-light">
-                            <tr><th>Part No.</th><th>Name</th><th class="text-end">Price</th><th class="text-end">Qty</th><th class="text-end">Total</th><th>Action</th></tr>
-                        </thead>
-                        <tbody>
-                            {% for pid, it in cart.items() %}
-                            <tr>
-                                <td>{{ it.part_number }}</td>
-                                <td>{{ it.part_name }}</td>
-                                <td class="text-end">${{ "%.2f"|format(it.unit_price) }}</td>
-                                <td class="text-end">{{ it.qty }}</td>
-                                <td class="text-end fw-bold">${{ "%.2f"|format(it.unit_price * it.qty) }}</td>
-                                <td class="text-end"><a href="{{ url_for('remove_from_cart', part_id=pid) }}" class="text-danger"><i class="bi bi-trash"></i></a></td>
-                            </tr>
-                            {% endfor %}
-                            <tr>
-                                <td colspan="4" class="text-end"><strong>Subtotal</strong></td>
-                                <td class="text-end fw-bold">${{ "%.2f"|format(subtotal) }}</td>
-                                <td></td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-                <a href="{{ url_for('new_sale') }}" class="btn btn-success w-100"><i class="bi bi-file-earmark-invoice"></i> Checkout & Generate Invoice</a>
-                {% else %}
-                <div class="text-center text-muted py-3">Cart is empty. Scan a part to begin.</div>
+                <form method="post" action="{{ url_for('clear_cart') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn btn-sm btn-link text-danger p-0">Clear</button>
+                </form>
                 {% endif %}
-                <a href="{{ url_for('clear_cart') }}" class="btn btn-outline-danger w-100 btn-sm mt-2"><i class="bi bi-trash"></i> Clear Cart</a>
             </div>
+            {% if cart %}
+            <ul class="item-list">
+                {% for pid, it in cart.items() %}
+                <li class="d-flex justify-content-between align-items-center gap-2">
+                    <div class="text-truncate">
+                        <div class="item-title text-truncate">{{ it.part_name }}</div>
+                        <div class="item-meta">{{ it.part_number }} &middot; {{ it.qty }} &times; {{ it.unit_price|money }}</div>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="amount">{{ (it.unit_price * it.qty)|money }}</span>
+                        <form method="post" action="{{ url_for('remove_from_cart', part_id=pid) }}">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button class="btn btn-sm btn-link text-danger p-0" aria-label="Remove"><i class="bi bi-x-circle"></i></button>
+                        </form>
+                    </div>
+                </li>
+                {% endfor %}
+                <li class="d-flex justify-content-between fw-semibold"><span>Subtotal</span><span class="amount">{{ subtotal|money }}</span></li>
+            </ul>
+            <div class="card-body pt-0">
+                <a href="{{ url_for('new_sale') }}" class="btn btn-success w-100"><i class="bi bi-receipt"></i> Checkout</a>
+            </div>
+            {% else %}
+            <div class="card-body text-center text-muted">Cart is empty. Scan a part to begin.</div>
+            {% endif %}
         </div>
     </div>
 </div>
+{% endblock %}
 
-<script src="https://unpkg.com/html5-qrcode" crossorigin="anonymous"></script>
+{% block scripts %}
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script>
-let scannerRunning = false;
-let html5QrcodeScanner = null;
-let currentPartId = null;
-
-function toggleScan(){
-    if(!scannerRunning){
-        html5QrcodeScanner = new Html5Qrcode("reader");
-        html5QrcodeScanner.start(
-            { facingMode: "environment" },
-            { fps: 10, qrbox: 250 },
-            (decodedText) => {
-                onScanSuccess(decodedText);
-            },
-            (errorMessage) => {
-                // ignore scan errors
-            }
-        );
-        scannerRunning = true;
-    } else {
-        html5QrcodeScanner.stop().then(() => {
-            scannerRunning = false;
-        }).catch(err => {});
-    }
-}
-
-function onScanSuccess(code){
-    document.getElementById('manualCode').value = code;
-    lookupCode(code);
-    // Auto-stop after successful scan
-    if(scannerRunning){
-        html5QrcodeScanner.stop().then(() => { scannerRunning = false; }).catch(()=>{});
-    }
-}
-
-async function lookupCode(code){
-    try {
-        const res = await fetch('/api/part/lookup/' + encodeURIComponent(code));
-        const data = await res.json();
-        showResult(data);
-    } catch(e) {
-        document.getElementById('result').textContent = 'Lookup failed.';
-    }
-}
-
-function lookupManual(){
-    const code = document.getElementById('manualCode').value.trim();
-    if(code) lookupCode(code);
-}
-
-function showResult(data){
-    const res = document.getElementById('result');
+(function(){
+    let scanner = null, running = false, currentPart = null;
+    const toggleBtn = document.getElementById('toggleScan');
+    const resultEl = document.getElementById('result');
     const card = document.getElementById('partCard');
-    if(!data.found){
-        res.textContent = 'Part not found.';
-        res.className = 'text-danger';
-        card.style.display = 'none';
-        currentPartId = null;
-        return;
-    }
-    currentPartId = data.id;
-    res.textContent = 'Part found!';
-    res.className = 'text-success fw-bold';
-    document.getElementById('resPartNumber').textContent = data.part_number;
-    document.getElementById('resName').textContent = data.name;
-    document.getElementById('resPrice').textContent = '$' + data.selling_price.toFixed(2);
-    document.getElementById('resStock').textContent = data.stock_quantity;
-    document.getElementById('btnAddCart').onclick = function(){
-        fetch('/sale/add-to-cart/' + data.id, { method: 'POST' })
-            .then(r => r.json())
-            .then(d => {
-                if(d.ok){
-                    location.reload();
-                } else {
-                    alert(d.error || 'Could not add to cart');
-                }
-            });
-    };
-    card.style.display = 'block';
-}
 
-// Start camera by default on mobile-friendly load
-window.addEventListener('DOMContentLoaded', () => {
-    if(!scannerRunning) toggleScan();
-});
+    function setRunning(on){
+        running = on;
+        toggleBtn.querySelector('span').textContent = on ? 'Stop camera' : 'Start camera';
+        toggleBtn.classList.toggle('btn-outline-danger', on);
+        toggleBtn.classList.toggle('btn-primary', !on);
+    }
+    async function stop(){
+        if (scanner && running) { try { await scanner.stop(); } catch (e) {} }
+        setRunning(false);
+    }
+    toggleBtn.addEventListener('click', async () => {
+        if (running) return stop();
+        if (typeof Html5Qrcode === 'undefined') { resultEl.textContent = 'Scanner library failed to load. Check your connection.'; return; }
+        scanner = scanner || new Html5Qrcode('reader');
+        try {
+            await scanner.start({ facingMode: 'environment' }, { fps: 10, qrbox: { width: 250, height: 160 } },
+                code => { stop(); document.getElementById('manualCode').value = code; lookup(code); }, () => {});
+            setRunning(true);
+            document.getElementById('cameraHint').hidden = true;
+        } catch (e) {
+            resultEl.textContent = 'Could not start the camera: ' + e;
+        }
+    });
+
+    document.getElementById('manualForm').addEventListener('submit', e => {
+        e.preventDefault();
+        const code = document.getElementById('manualCode').value.trim();
+        if (code) lookup(code);
+    });
+
+    async function lookup(code){
+        resultEl.hidden = false;
+        resultEl.textContent = 'Looking up ' + code + '…';
+        card.hidden = true;
+        try {
+            const res = await fetch('/api/part/lookup/' + encodeURIComponent(code));
+            const data = await res.json();
+            if (!data.found) { resultEl.textContent = 'No part found for "' + code + '".'; return; }
+            currentPart = data;
+            resultEl.hidden = true;
+            card.hidden = false;
+            document.getElementById('resName').textContent = data.name;
+            document.getElementById('resPartNumber').textContent = data.part_number;
+            document.getElementById('resPrice').textContent = data.selling_price_display;
+            document.getElementById('resStock').textContent = data.stock_quantity + ' in stock';
+            document.getElementById('btnEdit').href = data.edit_url;
+            document.getElementById('btnAddCart').disabled = data.stock_quantity <= 0;
+        } catch (e) {
+            resultEl.textContent = 'Lookup failed.';
+        }
+    }
+
+    document.getElementById('btnAddCart').addEventListener('click', async () => {
+        if (!currentPart) return;
+        const res = await fetch('/sale/add-to-cart/' + currentPart.id, { method: 'POST', headers: { 'X-CSRFToken': CSRF_TOKEN } });
+        const d = await res.json().catch(() => ({}));
+        if (d.ok) { window.location.reload(); }
+        else { alert(d.error || 'Could not add to cart'); }
+    });
+})();
 </script>
 {% endblock %}

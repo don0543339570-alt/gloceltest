@@ -1,0 +1,113 @@
+{% extends 'base.html' %}
+{% set editing = part is not none %}
+{% macro val(field, default='') -%}
+{%- if editing -%}{{ part[field] if part[field] is not none else default }}{%- else -%}{{ form.get(field, default) }}{%- endif -%}
+{%- endmacro %}
+{% block title %}{{ 'Edit part' if editing else 'Add part' }} - GLOCEL{% endblock %}
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1>{% if editing %}<i class="bi bi-pencil"></i> Edit part{% else %}<i class="bi bi-plus-square"></i> Add part{% endif %}</h1>
+        <div class="sub">{% if editing %}{{ part.part_number }} &middot; last updated {{ part.last_updated }}{% else %}Part number will be <strong>SN-{{ "%04d"|format(next_sn) }} &lt;item no.&gt;</strong>{% endif %}</div>
+    </div>
+    <a href="{{ url_for('parts') }}" class="btn btn-outline-secondary d-none d-md-inline-block">Back to parts</a>
+</div>
+
+<form method="post" id="partForm">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="row g-3">
+        <div class="col-12 col-lg-7">
+            <div class="card mb-3">
+                <div class="card-header"><i class="bi bi-info-circle"></i> Details</div>
+                <div class="card-body row g-3">
+                    <div class="col-12 col-md-6">
+                        <label class="form-label" for="item_number">Item number <span class="text-danger">*</span></label>
+                        <input id="item_number" name="item_number" class="form-control" required value="{{ val('item_number') }}" placeholder="e.g. BRAKE-001" autocapitalize="characters">
+                        <div class="form-text">Your own code. Also used for scanning.</div>
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <label class="form-label" for="name">Part name <span class="text-danger">*</span></label>
+                        <input id="name" name="name" class="form-control" required value="{{ val('name') }}" placeholder="e.g. Front brake pad">
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label" for="category">Category</label>
+                        <input id="category" name="category" class="form-control" value="{{ val('category') }}">
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label" for="supplier">Supplier</label>
+                        <input id="supplier" name="supplier" class="form-control" value="{{ val('supplier') }}">
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label" for="stock_quantity">Stock quantity</label>
+                        <input id="stock_quantity" type="number" inputmode="numeric" name="stock_quantity" class="form-control" step="1" min="0" value="{{ val('stock_quantity', 0) }}" required>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label" for="reorder_level">Reorder when at</label>
+                        <input id="reorder_level" type="number" inputmode="numeric" name="reorder_level" class="form-control" step="1" min="0" value="{{ val('reorder_level', 5) }}" required>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-lg-5">
+            <div class="card mb-3">
+                <div class="card-header"><i class="bi bi-calculator"></i> Landed cost &amp; price</div>
+                <div class="card-body row g-3">
+                    {% for field, label in [('price_usd','Part price'), ('shipping_cost_usd','Shipping'), ('duty_usd','Duty'), ('transport_usd','Transport'), ('charge_usd','Other charges'), ('clearance_usd','Clearance')] %}
+                    <div class="col-6">
+                        <label class="form-label" for="{{ field }}">{{ label }} (USD)</label>
+                        <input id="{{ field }}" type="number" inputmode="decimal" name="{{ field }}" class="form-control calc" step="0.01" min="0" value="{{ val(field, 0) }}">
+                    </div>
+                    {% endfor %}
+                    <div class="col-6">
+                        <label class="form-label" for="exchange_rate">1 USD = ? local</label>
+                        <input id="exchange_rate" type="number" inputmode="decimal" name="exchange_rate" class="form-control calc" step="0.01" min="0" value="{{ part.exchange_rate if editing and part.exchange_rate else default_rate }}">
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label" for="margin_percent">Margin (%)</label>
+                        <input id="margin_percent" type="number" inputmode="decimal" name="margin_percent" class="form-control calc" step="0.01" min="0" value="{{ val('margin_percent', 20) }}">
+                    </div>
+                    <div class="col-12">
+                        <div class="rounded-3 p-3 bg-light">
+                            <div class="d-flex justify-content-between small"><span class="text-muted">Total cost (USD)</span><span class="amount" id="prevTotalUsd">-</span></div>
+                            <div class="d-flex justify-content-between small"><span class="text-muted">Landed cost (local)</span><span class="amount" id="prevTotalLocal">-</span></div>
+                            <hr class="my-2">
+                            <div class="d-flex justify-content-between"><span class="fw-semibold">Selling price</span><span class="amount fs-5 text-success" id="prevSellingPrice">-</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="sticky-actions d-flex gap-2 justify-content-end">
+        <a href="{{ url_for('parts') }}" class="btn btn-outline-secondary">Cancel</a>
+        <button type="submit" class="btn btn-success flex-grow-1 flex-md-grow-0"><i class="bi bi-save"></i> {{ 'Save changes' if editing else 'Save part' }}</button>
+    </div>
+</form>
+
+{% if editing and current_user.is_admin %}
+<form action="{{ url_for('delete_part', part_id=part.id) }}" method="post" class="mt-4 text-center" data-confirm="Delete {{ part.name }}? This can't be undone.">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit" class="btn btn-link text-danger"><i class="bi bi-trash"></i> Delete this part</button>
+</form>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function(){
+    const g = id => parseFloat(document.getElementById(id).value) || 0;
+    function calcPreview(){
+        const totalUsd = ['price_usd','shipping_cost_usd','duty_usd','transport_usd','charge_usd','clearance_usd'].reduce((s, id) => s + g(id), 0);
+        const totalLocal = totalUsd * g('exchange_rate');
+        const selling = totalLocal * (1 + g('margin_percent') / 100);
+        document.getElementById('prevTotalUsd').textContent = '$' + totalUsd.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        document.getElementById('prevTotalLocal').textContent = fmtMoney(totalLocal);
+        document.getElementById('prevSellingPrice').textContent = fmtMoney(selling);
+    }
+    document.querySelectorAll('.calc').forEach(i => i.addEventListener('input', calcPreview));
+    calcPreview();
+})();
+</script>
+{% endblock %}

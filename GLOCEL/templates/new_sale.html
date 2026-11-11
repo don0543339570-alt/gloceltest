@@ -1,133 +1,218 @@
 {% extends 'base.html' %}
-
-{% block title %}New Sale / Invoice - GLOCEL{% endblock %}
-
+{% block title %}New sale - GLOCEL{% endblock %}
 {% block content %}
-<h2><i class="bi bi-cart-plus"></i> New Sale</h2>
-<p class="text-muted">Select products and quantities. Stock is deducted automatically and an invoice is generated.</p>
+<div class="page-head">
+    <div><h1><i class="bi bi-cart-plus"></i> New sale</h1><div class="sub">Add items, then complete the sale to create the invoice. Stock is deducted automatically.</div></div>
+    <a href="{{ url_for('scan') }}" class="btn btn-outline-primary"><i class="bi bi-upc-scan"></i> Scan items</a>
+</div>
 
-<form method="post" class="card p-4 shadow-sm">
-    <div class="row g-3 mb-4">
-        <div class="col-md-4">
-            <label class="form-label fw-bold">Customer Name</label>
-            <input type="text" name="customer_name" class="form-control" placeholder="Walk-in Customer">
+<form method="post" id="saleForm">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="row g-3">
+        <div class="col-12 col-lg-7">
+            <div class="card mb-3">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span><i class="bi bi-bag"></i> Items</span>
+                    {% if cart_items %}
+                    <button type="submit" form="clearCartForm" class="btn btn-sm btn-link text-danger p-0">Clear scanned cart</button>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    <div class="search-bar mb-2">
+                        <i class="bi bi-search"></i>
+                        <input type="search" id="partSearch" class="form-control" placeholder="Search parts to add (name, part no., item no.)" autocomplete="off">
+                    </div>
+                    <div class="list-group picker-results mb-3" id="pickerResults"></div>
+                    <ul class="item-list border rounded-3" id="itemsList"></ul>
+                    <div class="text-center text-muted py-4" id="emptyItems">No items yet. Search above or <a href="{{ url_for('scan') }}">scan a barcode</a>.</div>
+                </div>
+            </div>
         </div>
-        <div class="col-md-4">
-            <label class="form-label fw-bold">Customer Phone</label>
-            <input type="text" name="customer_phone" class="form-control">
-        </div>
-        <div class="col-md-4">
-            <label class="form-label fw-bold">Customer Email</label>
-            <input type="email" name="customer_email" class="form-control">
-        </div>
-        <div class="col-md-3">
-            <label class="form-label fw-bold">Discount</label>
-            <input type="number" name="discount" class="form-control" step="0.01" min="0" value="0">
-        </div>
-        <div class="col-md-3">
-            <label class="form-label fw-bold">Tax (%)</label>
-            <input type="number" name="tax_percent" class="form-control" step="0.01" min="0" value="{{ tax_percent }}">
+
+        <div class="col-12 col-lg-5">
+            <div class="card mb-3">
+                <div class="card-header"><i class="bi bi-person"></i> Customer</div>
+                <div class="card-body row g-3">
+                    <div class="col-12">
+                        <label class="form-label" for="customer_name">Name</label>
+                        <input id="customer_name" name="customer_name" class="form-control" list="customerList" placeholder="Walk-in customer" autocomplete="off" value="{{ prefill.customer_name }}">
+                        <datalist id="customerList">
+                            {% for c in customers %}<option value="{{ c.name }}">{{ c.phone }}</option>{% endfor %}
+                        </datalist>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label" for="customer_phone">Phone</label>
+                        <input id="customer_phone" name="customer_phone" type="tel" class="form-control" value="{{ prefill.customer_phone }}">
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label" for="customer_email">Email</label>
+                        <input id="customer_email" name="customer_email" type="email" class="form-control" value="{{ prefill.customer_email }}">
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-3">
+                <div class="card-header"><i class="bi bi-cash-coin"></i> Payment</div>
+                <div class="card-body row g-3">
+                    <div class="col-6">
+                        <label class="form-label" for="tax_percent">Tax (%)</label>
+                        <input id="tax_percent" type="number" inputmode="decimal" name="tax_percent" class="form-control" step="0.01" min="0" value="{{ tax_percent }}">
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label" for="discount">Discount</label>
+                        <input id="discount" type="number" inputmode="decimal" name="discount" class="form-control" step="0.01" min="0" value="0">
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label d-block">Status</label>
+                        <div class="btn-group w-100" role="group">
+                            {% for st in statuses %}
+                            <input type="radio" class="btn-check" name="payment_status" id="status{{ st }}" value="{{ st }}" {% if loop.first %}checked{% endif %}>
+                            <label class="btn btn-outline-{{ 'success' if st == 'Paid' else 'warning' }}" for="status{{ st }}">{{ st }}</label>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label" for="notes">Notes</label>
+                        <textarea id="notes" name="notes" class="form-control" rows="2" placeholder="Optional"></textarea>
+                    </div>
+                    <div class="col-12">
+                        <div class="rounded-3 p-3 bg-light small">
+                            <div class="d-flex justify-content-between"><span class="text-muted">Subtotal</span><span class="amount" id="sumSubtotal">0.00</span></div>
+                            <div class="d-flex justify-content-between"><span class="text-muted">Tax</span><span class="amount" id="sumTax">0.00</span></div>
+                            <div class="d-flex justify-content-between"><span class="text-muted">Discount</span><span class="amount" id="sumDiscount">0.00</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
-    <h6>Items in Cart</h6>
-    <div class="table-responsive mb-3">
-        <table class="table table-sm table-bordered" id="itemsTable">
-            <thead class="table-light">
-                <tr>
-                    <th style="width:35%">Part</th>
-                    <th style="width:15%" class="text-end">Selling Price</th>
-                    <th style="width:12%" class="text-end">Qty</th>
-                    <th style="width:15%" class="text-end">Line Total</th>
-                    <th style="width:10%" class="text-end">Stock</th>
-                    <th class="text-end">Action</th>
-                </tr>
-            </thead>
-            <tbody id="itemsBody">
-                {% for p in parts %}
-                <tr class="item-row" data-id="{{ p.id }}">
-                    <td>
-                        <select name="part_id[]" class="form-select part-select" required>
-                            <option value="{{ p.id }}" data-price="{{ p.selling_price }}">{{ p.part_number }} - {{ p.name }}</option>
-                        </select>
-                    </td>
-                    <td class="text-end unit-price" data-price="{{ p.selling_price }}">${{ "%.2f"|format(p.selling_price) }}</td>
-                    <td class="text-end"><input type="number" name="quantity[]" class="form-control form-control-sm qty-input" step="1" min="1" value="1"></td>
-                    <td class="text-end line-total">${{ "%.2f"|format(p.selling_price) }}</td>
-                    <td class="text-end stock-badge">{{ p.stock_quantity }}</td>
-                    <td class="text-end"><button type="button" class="btn btn-sm btn-outline-danger remove-row"><i class="bi bi-trash"></i></button></td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-
-    <div class="row g-2 mb-3">
-        <div class="col-md-2 d-grid">
-            <button type="button" class="btn btn-outline-secondary w-100" id="addRow"><i class="bi bi-plus"></i> Add Item</button>
+    <div class="sticky-actions d-flex align-items-center justify-content-between gap-3">
+        <div>
+            <div class="small text-muted">Total &middot; <span id="sumCount">0</span> item(s)</div>
+            <div class="fs-5 amount" id="sumTotal">0.00</div>
         </div>
-        <div class="col-md-4">
-            <label class="form-label d-block w-100">Notes</label>
-            <textarea name="notes" class="form-control form-control-sm" rows="1"></textarea>
-        </div>
-    </div>
-
-    <div class="text-end">
-        <a href="{{ url_for('sales') }}" class="btn btn-outline-secondary">Cancel</a>
-        <button type="submit" class="btn btn-success"><i class="bi bi-file-earmark-invoice"></i> Complete Sale & Generate Invoice</button>
+        <button type="submit" class="btn btn-success btn-lg" id="submitSale" disabled><i class="bi bi-check2-circle"></i> Complete sale</button>
     </div>
 </form>
+<form method="post" action="{{ url_for('clear_cart') }}" id="clearCartForm">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+</form>
+{% endblock %}
 
+{% block scripts %}
 <script>
-const priceMap = {};
-document.querySelectorAll('.part-select').forEach(s => {
-    s.querySelectorAll('option').forEach(o => { priceMap[o.value] = parseFloat(o.dataset.price || 0); });
-});
+(function(){
+    const PARTS = {{ parts|tojson }};
+    const CART = {{ cart_items|tojson }};
+    const CUSTOMERS = {{ customers|tojson }};
+    const byId = Object.fromEntries(PARTS.map(p => [p.id, p]));
+    const items = new Map();   // part id -> qty
 
-function setupRow(tr){
-    tr.querySelectorAll('.qty-input').forEach(i => i.addEventListener('input', updateAll));
-    tr.querySelector('.part-select').addEventListener('change', function(){
-        const opt = this.options[this.selectedIndex];
-        const priceCell = tr.querySelector('.unit-price');
-        priceCell.dataset.price = priceMap[opt.value] || 0;
-        priceCell.textContent = (priceMap[opt.value] || 0).toFixed(2);
-        updateAll();
+    const list = document.getElementById('itemsList');
+    const empty = document.getElementById('emptyItems');
+    const results = document.getElementById('pickerResults');
+    const search = document.getElementById('partSearch');
+    const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+    function addItem(id, qty){
+        const p = byId[id]; if (!p) return;
+        const next = Math.min((items.get(id) || 0) + (qty || 1), p.stock);
+        items.set(id, next);
+        render();
+    }
+    function setQty(id, qty){
+        const p = byId[id];
+        qty = Math.max(1, Math.min(parseInt(qty) || 1, p.stock));
+        items.set(id, qty);
+        render();
+    }
+    function render(){
+        list.innerHTML = '';
+        items.forEach((qty, id) => {
+            const p = byId[id];
+            const li = document.createElement('li');
+            li.innerHTML = `
+                <input type="hidden" name="part_id[]" value="${p.id}">
+                <div class="d-flex justify-content-between gap-2">
+                    <div class="text-truncate">
+                        <div class="item-title text-truncate">${esc(p.name)}</div>
+                        <div class="item-meta">${esc(p.part_number)} &middot; ${fmtMoney(p.price)} each &middot; ${p.stock} in stock</div>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-link text-danger p-0 remove" aria-label="Remove"><i class="bi bi-x-circle fs-5"></i></button>
+                </div>
+                <div class="d-flex justify-content-between align-items-center mt-2">
+                    <div class="qty-stepper">
+                        <button type="button" class="dec" aria-label="Less">&minus;</button>
+                        <input type="number" inputmode="numeric" name="quantity[]" value="${qty}" min="1" max="${p.stock}" aria-label="Quantity">
+                        <button type="button" class="inc" aria-label="More">+</button>
+                    </div>
+                    <div class="amount">${fmtMoney(p.price * qty)}</div>
+                </div>`;
+            li.querySelector('.remove').onclick = () => { items.delete(id); render(); };
+            li.querySelector('.dec').onclick = () => setQty(id, qty - 1);
+            li.querySelector('.inc').onclick = () => setQty(id, qty + 1);
+            li.querySelector('input[name="quantity[]"]').onchange = e => setQty(id, e.target.value);
+            list.appendChild(li);
+        });
+        list.hidden = items.size === 0;
+        empty.hidden = items.size > 0;
+        totals();
+    }
+    function totals(){
+        let subtotal = 0, count = 0;
+        items.forEach((qty, id) => { subtotal += byId[id].price * qty; count += qty; });
+        const tax = subtotal * (parseFloat(document.getElementById('tax_percent').value) || 0) / 100;
+        const discount = Math.min(parseFloat(document.getElementById('discount').value) || 0, subtotal + tax);
+        document.getElementById('sumSubtotal').textContent = fmtMoney(subtotal);
+        document.getElementById('sumTax').textContent = fmtMoney(tax);
+        document.getElementById('sumDiscount').textContent = '- ' + fmtMoney(discount);
+        document.getElementById('sumTotal').textContent = fmtMoney(subtotal + tax - discount);
+        document.getElementById('sumCount').textContent = count;
+        document.getElementById('submitSale').disabled = items.size === 0;
+    }
+    function showResults(){
+        const q = search.value.trim().toLowerCase();
+        results.innerHTML = '';
+        if (!q) return;
+        const matches = PARTS.filter(p => (p.name + ' ' + p.part_number + ' ' + p.item_number).toLowerCase().includes(q)).slice(0, 20);
+        if (!matches.length) {
+            results.innerHTML = '<div class="list-group-item text-muted small">No in-stock parts match.</div>';
+            return;
+        }
+        matches.forEach(p => {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'list-group-item list-group-item-action d-flex justify-content-between align-items-center';
+            b.innerHTML = `<span class="text-truncate"><span class="fw-semibold">${esc(p.name)}</span><br><span class="item-meta">${esc(p.part_number)} &middot; ${p.stock} in stock</span></span><span class="amount">${fmtMoney(p.price)} <i class="bi bi-plus-circle-fill text-primary ms-1"></i></span>`;
+            b.onclick = () => { addItem(p.id, 1); search.value = ''; results.innerHTML = ''; search.focus(); };
+            results.appendChild(b);
+        });
+    }
+    search.addEventListener('input', showResults);
+    search.addEventListener('keydown', e => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const first = results.querySelector('button');
+            if (first) first.click();
+        }
     });
-    tr.querySelector('.remove-row').addEventListener('click', function(){ tr.remove(); updateAll(); });
-}
+    ['tax_percent', 'discount'].forEach(id => document.getElementById(id).addEventListener('input', totals));
 
-function calcRow(row){
-    const price = parseFloat(row.querySelector('.unit-price').dataset.price || 0);
-    const qty = parseInt(row.querySelector('.qty-input').value) || 0;
-    const total = price * qty;
-    row.querySelector('.line-total').textContent = total.toFixed(2);
-    return total;
-}
-function updateAll(){
-    document.querySelectorAll('.item-row').forEach(r => { r.querySelector('.line-total').textContent = calcRow(r).toFixed(2); });
-}
-document.querySelectorAll('.item-row').forEach(setupRow);
-updateAll();
-
-document.getElementById('addRow').addEventListener('click', function(){
-    const tbody = document.getElementById('itemsBody');
-    const tr = document.createElement('tr');
-    tr.className = 'item-row';
-    let options = '';
-    document.querySelector('.part-select').querySelectorAll('option').forEach(o => {
-        options += `<option value="${o.value}" data-price="${o.dataset.price}">${o.text}</option>`;
+    document.getElementById('customer_name').addEventListener('change', e => {
+        const c = CUSTOMERS.find(c => c.name === e.target.value);
+        if (!c) return;
+        const phone = document.getElementById('customer_phone'), email = document.getElementById('customer_email');
+        if (!phone.value) phone.value = c.phone;
+        if (!email.value) email.value = c.email;
     });
-    tr.innerHTML = `
-        <td><select name="part_id[]" class="form-select part-select" required>${options}</select></td>
-        <td class="text-end unit-price" data-price="0">0.00</td>
-        <td class="text-end"><input type="number" name="quantity[]" class="form-control form-control-sm qty-input" step="1" min="1" value="1"></td>
-        <td class="text-end line-total">0.00</td>
-        <td class="text-end stock-badge">-</td>
-        <td class="text-end"><button type="button" class="btn btn-sm btn-outline-danger remove-row"><i class="bi bi-trash"></i></button></td>
-    `;
-    tbody.appendChild(tr);
-    setupRow(tr);
-    updateAll();
-});
+    document.getElementById('saleForm').addEventListener('submit', e => {
+        if (items.size === 0) { e.preventDefault(); return; }
+        document.getElementById('submitSale').disabled = true;
+    });
+
+    CART.forEach(it => addItem(it.id, it.qty));
+    render();
+})();
 </script>
 {% endblock %}
