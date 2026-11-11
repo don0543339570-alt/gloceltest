@@ -53,24 +53,39 @@
             <div class="card mb-3">
                 <div class="card-header"><i class="bi bi-calculator"></i> Landed cost &amp; price</div>
                 <div class="card-body row g-3">
-                    {% for field, label in [('price_usd','Part price'), ('shipping_cost_usd','Shipping'), ('duty_usd','Duty'), ('transport_usd','Transport'), ('charge_usd','Other charges'), ('clearance_usd','Clearance')] %}
                     <div class="col-6">
-                        <label class="form-label" for="{{ field }}">{{ label }} (USD)</label>
-                        <input id="{{ field }}" type="number" inputmode="decimal" name="{{ field }}" class="form-control calc" step="0.01" min="0" value="{{ val(field, 0) }}">
+                        <label class="form-label" for="price_usd">Part price (USD)</label>
+                        <div class="input-group">
+                            <span class="input-group-text">$</span>
+                            <input id="price_usd" type="number" inputmode="decimal" name="price_usd" class="form-control calc" step="0.01" min="0" value="{{ val('price_usd', 0) }}">
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label" for="exchange_rate">1 USD = ? {{ currency_symbol }}</label>
+                        <input id="exchange_rate" type="number" inputmode="decimal" name="exchange_rate" class="form-control calc" step="0.0001" min="0" value="{{ part.exchange_rate if editing and part.exchange_rate else default_rate }}">
+                    </div>
+                    {% for field, currency_field, label in EXTRA_COSTS %}
+                    {% set cur = val(currency_field, 'USD')|trim %}
+                    <div class="col-12 col-sm-6">
+                        <label class="form-label" for="{{ field }}">{{ label }}</label>
+                        <div class="input-group">
+                            <select name="{{ currency_field }}" id="{{ currency_field }}" class="form-select calc cost-currency" aria-label="{{ label }} currency">
+                                <option value="USD" {{ 'selected' if cur != 'LOCAL' }}>$</option>
+                                <option value="LOCAL" {{ 'selected' if cur == 'LOCAL' }}>{{ currency_symbol }}</option>
+                            </select>
+                            <input id="{{ field }}" type="number" inputmode="decimal" name="{{ field }}" class="form-control calc" step="0.01" min="0" value="{{ val(field, 0) }}">
+                        </div>
                     </div>
                     {% endfor %}
-                    <div class="col-6">
-                        <label class="form-label" for="exchange_rate">1 USD = ? local</label>
-                        <input id="exchange_rate" type="number" inputmode="decimal" name="exchange_rate" class="form-control calc" step="0.01" min="0" value="{{ part.exchange_rate if editing and part.exchange_rate else default_rate }}">
-                    </div>
                     <div class="col-6">
                         <label class="form-label" for="margin_percent">Margin (%)</label>
                         <input id="margin_percent" type="number" inputmode="decimal" name="margin_percent" class="form-control calc" step="0.01" min="0" value="{{ val('margin_percent', 20) }}">
                     </div>
                     <div class="col-12">
                         <div class="rounded-3 p-3 bg-light">
-                            <div class="d-flex justify-content-between small"><span class="text-muted">Total cost (USD)</span><span class="amount" id="prevTotalUsd">-</span></div>
-                            <div class="d-flex justify-content-between small"><span class="text-muted">Landed cost (local)</span><span class="amount" id="prevTotalLocal">-</span></div>
+                            <div class="d-flex justify-content-between small"><span class="text-muted">Paid in USD</span><span class="amount" id="prevTotalUsd">-</span></div>
+                            <div class="d-flex justify-content-between small"><span class="text-muted">Paid in {{ currency_symbol }}</span><span class="amount" id="prevPaidLocal">-</span></div>
+                            <div class="d-flex justify-content-between small"><span class="text-muted">Landed cost</span><span class="amount" id="prevTotalLocal">-</span></div>
                             <hr class="my-2">
                             <div class="d-flex justify-content-between"><span class="fw-semibold">Selling price</span><span class="amount fs-5 text-success" id="prevSellingPrice">-</span></div>
                         </div>
@@ -98,14 +113,21 @@
 <script>
 (function(){
     const g = id => parseFloat(document.getElementById(id).value) || 0;
+    const EXTRAS = {{ EXTRA_COSTS|map('first')|list|tojson }};
+    const CURRENCY_FIELDS = {{ EXTRA_COSTS|map(attribute=1)|list|tojson }};
     function calcPreview(){
-        const totalUsd = ['price_usd','shipping_cost_usd','duty_usd','transport_usd','charge_usd','clearance_usd'].reduce((s, id) => s + g(id), 0);
-        const totalLocal = totalUsd * g('exchange_rate');
+        let usd = g('price_usd'), local = 0;
+        EXTRAS.forEach((id, i) => {
+            if (document.getElementById(CURRENCY_FIELDS[i]).value === 'LOCAL') local += g(id); else usd += g(id);
+        });
+        const totalLocal = usd * g('exchange_rate') + local;
         const selling = totalLocal * (1 + g('margin_percent') / 100);
-        document.getElementById('prevTotalUsd').textContent = '$' + totalUsd.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        document.getElementById('prevTotalUsd').textContent = '$' + usd.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        document.getElementById('prevPaidLocal').textContent = fmtMoney(local);
         document.getElementById('prevTotalLocal').textContent = fmtMoney(totalLocal);
         document.getElementById('prevSellingPrice').textContent = fmtMoney(selling);
     }
+    document.querySelectorAll('select.calc').forEach(i => i.addEventListener('change', calcPreview));
     document.querySelectorAll('.calc').forEach(i => i.addEventListener('input', calcPreview));
     calcPreview();
 })();
