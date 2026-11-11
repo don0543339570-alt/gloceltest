@@ -60,6 +60,7 @@ login_manager.login_message_category = 'warning'
 PAYMENT_STATUSES = ['Paid', 'Unpaid']
 ROLES = ['admin', 'staff']
 DEFAULT_CURRENCY = 'GH₵'
+DEFAULT_EXCHANGE_RATE = 15.0  # GH₵ per USD for new installs; set the real rate in Settings
 # Extra landed costs that can be paid in USD or local currency.
 # (amount column, currency column, label). Amounts stay in the original *_usd columns.
 EXTRA_COSTS = [
@@ -77,7 +78,7 @@ COST_CURRENCIES = ['USD', 'LOCAL']
 # ---------------------------------------------------------------------------
 class Settings(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    exchange_rate = db.Column(db.Float, default=1500.0)
+    exchange_rate = db.Column(db.Float, default=DEFAULT_EXCHANGE_RATE)
     company_name = db.Column(db.String(200), default='GLOCEL')
     company_address = db.Column(db.String(200), default='')
     company_phone = db.Column(db.String(100), default='')
@@ -239,7 +240,7 @@ def init_db():
         db.create_all()
         ensure_columns()
         if not Settings.query.first():
-            db.session.add(Settings(id=1, exchange_rate=1500.0, company_name='GLOCEL'))
+            db.session.add(Settings(id=1, exchange_rate=DEFAULT_EXCHANGE_RATE, company_name='GLOCEL'))
             try:
                 db.session.commit()
             except IntegrityError:
@@ -277,7 +278,7 @@ def get_settings():
     if row is None:
         row = Settings.query.first()
         if not row:
-            row = Settings(id=1, exchange_rate=1500.0, company_name='GLOCEL')
+            row = Settings(id=1, exchange_rate=DEFAULT_EXCHANGE_RATE, company_name='GLOCEL')
             db.session.add(row)
             db.session.commit()
         g.settings_row = row
@@ -297,7 +298,7 @@ def calc_costs(form, rate=None):
     """Landed cost = part price (USD) + extra costs, each entered in USD or local currency."""
     price_usd = to_float(form.get('price_usd'))
     margin = to_float(form.get('margin_percent'))
-    ex_rate = to_float(form.get('exchange_rate'), default=0) or to_float(rate, default=1500.0) or 1500.0
+    ex_rate = to_float(form.get('exchange_rate'), default=0) or to_float(rate, default=DEFAULT_EXCHANGE_RATE) or DEFAULT_EXCHANGE_RATE
 
     data = {'price_usd': round(price_usd, 2)}
     extras_usd = extras_local = 0.0
@@ -674,7 +675,7 @@ def parts():
 @app.route('/parts/add', methods=['GET', 'POST'])
 def add_part():
     settings = get_settings()
-    default_rate = settings.exchange_rate or 1500.0
+    default_rate = settings.exchange_rate or DEFAULT_EXCHANGE_RATE
 
     if request.method == 'POST':
         item_number = request.form.get('item_number', '').strip()
@@ -713,7 +714,7 @@ def edit_part(part_id):
         flash('Part not found.', 'danger')
         return redirect(url_for('parts'))
 
-    default_rate = get_settings().exchange_rate or 1500.0
+    default_rate = get_settings().exchange_rate or DEFAULT_EXCHANGE_RATE
 
     if request.method == 'POST':
         item_number = request.form.get('item_number', '').strip()
@@ -1058,7 +1059,7 @@ def settings():
     row = get_settings()
 
     if request.method == 'POST':
-        row.exchange_rate = to_float(request.form.get('exchange_rate'), default=1500.0) or 1500.0
+        row.exchange_rate = to_float(request.form.get('exchange_rate'), default=DEFAULT_EXCHANGE_RATE) or DEFAULT_EXCHANGE_RATE
         row.company_name = request.form.get('company_name', '').strip() or 'GLOCEL'
         row.company_address = request.form.get('company_address', '').strip()
         row.company_phone = request.form.get('company_phone', '').strip()
