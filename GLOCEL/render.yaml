@@ -13,6 +13,10 @@ services:
           property: connectionString
       - key: FLASK_ENV
         value: production
+      - key: ADMIN_USERNAME
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
 
 databases:
   - name: glocel-db

@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+{% block title %}My account - GLOCEL{% endblock %}
+{% block content %}
+<div class="page-head">
+    <div><h1>My account</h1><div class="sub">@{{ current_user.username }} &middot; {{ current_user.role|capitalize }}</div></div>
+</div>
+<div class="row justify-content-center">
+    <div class="col-12 col-md-8 col-lg-6">
+        <form method="post" class="card">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="card-header">Change password</div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label">Display name</label>
+                    <input name="full_name" class="form-control" value="{{ current_user.full_name }}">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Current password</label>
+                    <input type="password" name="current_password" class="form-control" autocomplete="current-password" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">New password</label>
+                    <input type="password" name="new_password" class="form-control" autocomplete="new-password" required minlength="8">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Confirm new password</label>
+                    <input type="password" name="confirm_password" class="form-control" autocomplete="new-password" required minlength="8">
+                </div>
+                <button class="btn btn-primary w-100">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

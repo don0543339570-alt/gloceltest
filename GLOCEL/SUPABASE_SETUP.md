@@ -51,7 +51,14 @@ If you want to host it online on Render:
    - `DATABASE_URL` = your Supabase connection string (with `?sslmode=require`)
    - `SECRET_KEY` = your random secret
    - `FLASK_ENV` = `production`
+   - `ADMIN_USERNAME` / `ADMIN_PASSWORD` = the first admin login (only used if no users exist yet)
 4. Render will run `pip install -r requirements.txt` and `gunicorn app:app`.
+
+## Users & sign-in
+- Every page requires sign-in. The first admin comes from `ADMIN_USERNAME` / `ADMIN_PASSWORD`;
+  if those aren't set, the first visit shows a one-time **setup** page to create the admin.
+- Admins can add staff, reset passwords and disable accounts under **Users** (account menu, top right).
+- Staff can sell, scan, add/edit/restock parts. Only admins can change settings, manage users and delete parts.
 
 ## Troubleshooting
 | Problem | Fix |

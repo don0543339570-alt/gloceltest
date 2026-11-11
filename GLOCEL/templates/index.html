@@ -1,118 +1,107 @@
 {% extends 'base.html' %}
-
 {% block title %}Dashboard - GLOCEL{% endblock %}
-
 {% block content %}
-<div class="d-flex justify-content-between flex-wrap align-items-center mb-3">
-    <h2><i class="bi bi-speedometer2"></i> Dashboard</h2>
-    <div class="d-flex gap-2">
-        <a href="{{ url_for('add_part') }}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg"></i> Add Part</a>
-        <a href="{{ url_for('scan') }}" class="btn btn-outline-primary btn-sm"><i class="bi bi-camera"></i> Scan</a>
+<div class="page-head">
+    <div>
+        <h1>Hi, {{ current_user.display_name }}</h1>
+        <div class="sub">Here's how the business is doing today.</div>
     </div>
+    <div class="d-none d-lg-flex gap-2">
+        <a href="{{ url_for('new_sale') }}" class="btn btn-primary"><i class="bi bi-cart-plus"></i> New sale</a>
+        <a href="{{ url_for('add_part') }}" class="btn btn-outline-primary"><i class="bi bi-plus-lg"></i> Add part</a>
+    </div>
+</div>
+
+<div class="quick-actions mb-3 d-lg-none">
+    <a href="{{ url_for('new_sale') }}"><i class="bi bi-cart-plus"></i>New sale</a>
+    <a href="{{ url_for('scan') }}"><i class="bi bi-upc-scan"></i>Scan</a>
+    <a href="{{ url_for('add_part') }}"><i class="bi bi-plus-square"></i>Add part</a>
+    <a href="{{ url_for('customers') }}"><i class="bi bi-people"></i>Customers</a>
 </div>
 
 <div class="row g-3 mb-3">
-    <div class="col-6 col-md-3">
-        <div class="card bg-primary text-white shadow-sm">
-            <div class="card-body">
-                <div class="d-flex justify-content-between">
-                    <div>
-                        <h6 class="card-title">Total Parts</h6>
-                        <h3 class="mb-0">{{ total_parts }}</h3>
-                    </div>
-                    <div class="align-self-center"><i class="bi bi-box-seam fs-4 opacity-50"></i></div>
-                </div>
-            </div>
+    <div class="col-6 col-lg-3">
+        <a href="{{ url_for('sales') }}" class="stat stat-green">
+            <div class="label">Sales today</div>
+            <div class="value">{{ sales_today|money }}</div>
+            <div class="hint">{{ count_today }} invoice{{ '' if count_today == 1 else 's' }}</div>
+            <i class="bi bi-graph-up-arrow bg-icon"></i>
+        </a>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="stat stat-blue">
+            <div class="label">This month</div>
+            <div class="value">{{ sales_month|money }}</div>
+            <div class="hint">All time {{ total_sales|money }}</div>
+            <i class="bi bi-calendar3 bg-icon"></i>
         </div>
     </div>
-    <div class="col-6 col-md-3">
-        <div class="card bg-warning text-dark shadow-sm">
-            <div class="card-body">
-                <div class="d-flex justify-content-between">
-                    <div>
-                        <h6 class="card-title">Low Stock / Reorder</h6>
-                        <h3 class="mb-0">{{ low_stock }}</h3>
-                    </div>
-                    <div class="align-self-center"><i class="bi bi-exclamation-triangle fs-4 opacity-50"></i></div>
-                </div>
-            </div>
-        </div>
+    <div class="col-6 col-lg-3">
+        <a href="{{ url_for('sales', status='Unpaid') }}" class="stat stat-rose">
+            <div class="label">Unpaid</div>
+            <div class="value">{{ unpaid_total|money }}</div>
+            <div class="hint">{{ unpaid_count }} invoice{{ '' if unpaid_count == 1 else 's' }} to follow up</div>
+            <i class="bi bi-hourglass-split bg-icon"></i>
+        </a>
     </div>
-    <div class="col-6 col-md-3">
-        <div class="card bg-info text-white shadow-sm">
-            <div class="card-body">
-                <div class="d-flex justify-content-between">
-                    <div>
-                        <h6 class="card-title">Inventory Value</h6>
-                        <h3 class="mb-0">${{ "%.2f"|format(inventory_value) }}</h3>
-                    </div>
-                    <div class="align-self-center"><i class="bi bi-cash-stack fs-4 opacity-50"></i></div>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="col-6 col-md-3">
-        <div class="card bg-success text-white shadow-sm">
-            <div class="card-body">
-                <div class="d-flex justify-content-between">
-                    <div>
-                        <h6 class="card-title">Total Sales</h6>
-                        <h3 class="mb-0">${{ "%.2f"|format(total_sales) }}</h3>
-                    </div>
-                    <div class="align-self-center"><i class="bi bi-currency-dollar fs-4 opacity-50"></i></div>
-                </div>
-            </div>
-        </div>
+    <div class="col-6 col-lg-3">
+        <a href="{{ url_for('reorder') }}" class="stat stat-amber">
+            <div class="label">Low stock</div>
+            <div class="value">{{ low_stock }}</div>
+            <div class="hint">of {{ total_parts }} parts &middot; stock value {{ inventory_value|money }}</div>
+            <i class="bi bi-exclamation-triangle bg-icon"></i>
+        </a>
     </div>
 </div>
 
-<div class="row">
-    <div class="col-md-6">
-        <div class="card shadow-sm">
-            <div class="card-header"><strong>Recently Added Parts</strong></div>
-            <div class="card-body p-0">
-                <table class="table table-sm mb-0">
-                    <thead>
-                        <tr><th>S/N</th><th>Part No.</th><th>Name</th><th class="text-end">Sell</th><th class="text-end">Stock</th></tr>
-                    </thead>
-                    <tbody>
-                        {% for p in recent_parts %}
-                        <tr>
-                            <td><span class="badge bg-secondary">{{ p.serial_number }}</span></td>
-                            <td><strong>{{ p.part_number }}</strong></td>
-                            <td>{{ p.name }}</td>
-                            <td class="text-end">${{ "%.2f"|format(p.selling_price) }}</td>
-                            <td class="text-end{% if p.stock_quantity <= p.reorder_level and p.reorder_level > 0 %} text-danger fw-bold{% endif %}">{{ p.stock_quantity }}</td>
-                        </tr>
-                        {% else %}
-                        <tr><td colspan="5" class="text-center text-muted py-3">No parts yet.</td></tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+<div class="row g-3">
+    <div class="col-12 col-lg-7">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>Recent invoices</span>
+                <a href="{{ url_for('sales') }}" class="small text-decoration-none">See all</a>
             </div>
+            <ul class="item-list">
+                {% for s in recent_sales %}
+                <li>
+                    <a class="row-link d-flex justify-content-between align-items-center gap-2" href="{{ url_for('view_invoice', sale_id=s.id) }}">
+                        <div class="text-truncate">
+                            <div class="item-title text-truncate">{{ s.customer_name or 'Walk-in customer' }}</div>
+                            <div class="item-meta">{{ s.invoice_number }} &middot; {{ s.sale_date[:16] }}</div>
+                        </div>
+                        <div class="text-end">
+                            <div class="amount">{{ s.total_amount|money }}</div>
+                            <span class="badge {{ 'bg-success' if s.payment_status == 'Paid' else 'bg-warning text-dark' }}">{{ s.payment_status }}</span>
+                        </div>
+                    </a>
+                </li>
+                {% else %}
+                <li class="text-center text-muted py-4">No invoices yet. <a href="{{ url_for('new_sale') }}">Make your first sale</a>.</li>
+                {% endfor %}
+            </ul>
         </div>
     </div>
-    <div class="col-md-6">
-        <div class="card shadow-sm">
-            <div class="card-header"><strong>Recent Invoices</strong></div>
-            <div class="card-body p-0">
-                <table class="table table-sm mb-0">
-                    <thead>
-                        <tr><th>Invoice</th><th>Customer</th><th class="text-end">Total</th></tr>
-                    </thead>
-                    <tbody>
-                        {% for s in recent_sales %}
-                        <tr>
-                            <td><a href="{{ url_for('view_invoice', sale_id=s.id) }}" class="text-decoration-none">{{ s.invoice_number }}</a></td>
-                            <td>{{ s.customer_name or '-' }}</td>
-                            <td class="text-end">${{ "%.2f"|format(s.total_amount) }}</td>
-                        </tr>
-                        {% else %}
-                        <tr><td colspan="3" class="text-center text-muted py-3">No invoices yet.</td></tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+    <div class="col-12 col-lg-5">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>Needs restocking</span>
+                <a href="{{ url_for('reorder') }}" class="small text-decoration-none">Reorder list</a>
             </div>
+            <ul class="item-list">
+                {% for p in low_parts %}
+                <li>
+                    <a class="row-link d-flex justify-content-between align-items-center gap-2" href="{{ url_for('edit_part', part_id=p.id) }}">
+                        <div class="text-truncate">
+                            <div class="item-title text-truncate">{{ p.name }}</div>
+                            <div class="item-meta">{{ p.part_number }}</div>
+                        </div>
+                        <span class="badge bg-danger-subtle text-danger-emphasis">{{ p.stock_quantity }} left</span>
+                    </a>
+                </li>
+                {% else %}
+                <li class="text-center text-muted py-4"><i class="bi bi-check-circle text-success"></i> All stock levels are healthy.</li>
+                {% endfor %}
+            </ul>
         </div>
     </div>
 </div>
