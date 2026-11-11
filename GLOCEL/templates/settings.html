@@ -15,11 +15,11 @@
                 <div class="card-body row g-3">
                     <div class="col-12 col-sm-6">
                         <label class="form-label">Exchange rate (1 USD = ? local)</label>
-                        <input type="number" inputmode="decimal" name="exchange_rate" class="form-control" step="0.01" min="0" value="{{ settings.exchange_rate }}" required>
+                        <input type="number" inputmode="decimal" name="exchange_rate" class="form-control" step="0.0001" min="0" value="{{ settings.exchange_rate }}" required>
                     </div>
                     <div class="col-6 col-sm-3">
                         <label class="form-label">Currency</label>
-                        <input name="currency_symbol" class="form-control" maxlength="20" value="{{ settings.currency_symbol or '' }}" placeholder="e.g. TSh">
+                        <input name="currency_symbol" class="form-control" maxlength="20" value="{{ settings.currency_symbol or 'GH₵' }}" placeholder="e.g. GH₵">
                     </div>
                     <div class="col-6 col-sm-3">
                         <label class="form-label">Tax (%)</label>

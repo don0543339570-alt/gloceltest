@@ -104,3 +104,6 @@ a.stat { text-decoration: none; display: block; }
     .no-print, .navbar, .tabbar, .btn, .alert { display: none !important; }
     .invoice-container { box-shadow: none; padding: 0; max-width: none; }
 }
+
+/* Currency picker beside a cost input */
+.input-group > .cost-currency { flex: 0 0 5.75rem; width: 5.75rem; }

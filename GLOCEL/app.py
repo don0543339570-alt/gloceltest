@@ -59,6 +59,18 @@ login_manager.login_message_category = 'warning'
 
 PAYMENT_STATUSES = ['Paid', 'Unpaid']
 ROLES = ['admin', 'staff']
+DEFAULT_CURRENCY = 'GH₵'
+DEFAULT_EXCHANGE_RATE = 15.0  # GH₵ per USD for new installs; set the real rate in Settings
+# Extra landed costs that can be paid in USD or local currency.
+# (amount column, currency column, label). Amounts stay in the original *_usd columns.
+EXTRA_COSTS = [
+    ('shipping_cost_usd', 'shipping_currency', 'Shipping'),
+    ('duty_usd', 'duty_currency', 'Duty'),
+    ('transport_usd', 'transport_currency', 'Transport'),
+    ('charge_usd', 'charge_currency', 'Other charges'),
+    ('clearance_usd', 'clearance_currency', 'Clearance'),
+]
+COST_CURRENCIES = ['USD', 'LOCAL']
 
 
 # ---------------------------------------------------------------------------
@@ -66,13 +78,13 @@ ROLES = ['admin', 'staff']
 # ---------------------------------------------------------------------------
 class Settings(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    exchange_rate = db.Column(db.Float, default=1500.0)
+    exchange_rate = db.Column(db.Float, default=DEFAULT_EXCHANGE_RATE)
     company_name = db.Column(db.String(200), default='GLOCEL')
     company_address = db.Column(db.String(200), default='')
     company_phone = db.Column(db.String(100), default='')
     company_email = db.Column(db.String(100), default='')
     tax_percent = db.Column(db.Float, default=0.0)
-    currency_symbol = db.Column(db.String(20), default='')
+    currency_symbol = db.Column(db.String(20), default=DEFAULT_CURRENCY)
 
 
 class User(UserMixin, db.Model):
@@ -122,7 +134,12 @@ class Part(db.Model):
     transport_usd = db.Column(db.Float, default=0)
     charge_usd = db.Column(db.Float, default=0)
     clearance_usd = db.Column(db.Float, default=0)
-    total_usd = db.Column(db.Float, default=0)
+    shipping_currency = db.Column(db.String(5), default='USD')
+    duty_currency = db.Column(db.String(5), default='USD')
+    transport_currency = db.Column(db.String(5), default='USD')
+    charge_currency = db.Column(db.String(5), default='USD')
+    clearance_currency = db.Column(db.String(5), default='USD')
+    total_usd = db.Column(db.Float, default=0)  # whole landed cost expressed in USD
 
     exchange_rate = db.Column(db.Float, default=0)
     total_local = db.Column(db.Float, default=0)
@@ -182,6 +199,7 @@ class SaleItem(db.Model):
 ADDED_COLUMNS = {
     'settings': [('currency_symbol', "VARCHAR(20) DEFAULT ''")],
     'sales': [('created_by', "VARCHAR(100) DEFAULT ''")],
+    'parts': [(currency_col, "VARCHAR(5) DEFAULT 'USD'") for _, currency_col, _ in EXTRA_COSTS],
 }
 
 
@@ -222,7 +240,7 @@ def init_db():
         db.create_all()
         ensure_columns()
         if not Settings.query.first():
-            db.session.add(Settings(id=1, exchange_rate=1500.0, company_name='GLOCEL'))
+            db.session.add(Settings(id=1, exchange_rate=DEFAULT_EXCHANGE_RATE, company_name='GLOCEL'))
             try:
                 db.session.commit()
             except IntegrityError:
@@ -260,7 +278,7 @@ def get_settings():
     if row is None:
         row = Settings.query.first()
         if not row:
-            row = Settings(id=1, exchange_rate=1500.0, company_name='GLOCEL')
+            row = Settings(id=1, exchange_rate=DEFAULT_EXCHANGE_RATE, company_name='GLOCEL')
             db.session.add(row)
             db.session.commit()
         g.settings_row = row
@@ -277,32 +295,33 @@ def build_part_number(serial, item_number):
 
 
 def calc_costs(form, rate=None):
+    """Landed cost = part price (USD) + extra costs, each entered in USD or local currency."""
     price_usd = to_float(form.get('price_usd'))
-    shipping = to_float(form.get('shipping_cost_usd'))
-    duty = to_float(form.get('duty_usd'))
-    transport = to_float(form.get('transport_usd'))
-    charge = to_float(form.get('charge_usd'))
-    clearance = to_float(form.get('clearance_usd'))
     margin = to_float(form.get('margin_percent'))
+    ex_rate = to_float(form.get('exchange_rate'), default=0) or to_float(rate, default=DEFAULT_EXCHANGE_RATE) or DEFAULT_EXCHANGE_RATE
 
-    total_usd = price_usd + shipping + duty + transport + charge + clearance
-    ex_rate = to_float(form.get('exchange_rate'), default=0) or to_float(rate, default=1500.0) or 1500.0
-    total_local = total_usd * ex_rate
+    data = {'price_usd': round(price_usd, 2)}
+    extras_usd = extras_local = 0.0
+    for amount_col, currency_col, _ in EXTRA_COSTS:
+        amount = to_float(form.get(amount_col))
+        currency = form.get(currency_col) if form.get(currency_col) in COST_CURRENCIES else 'USD'
+        data[amount_col] = round(amount, 2)
+        data[currency_col] = currency
+        if currency == 'LOCAL':
+            extras_local += amount
+        else:
+            extras_usd += amount
+
+    total_local = (price_usd + extras_usd) * ex_rate + extras_local
     selling_price = total_local * (1 + margin / 100.0)
-
-    return {
-        'price_usd': round(price_usd, 2),
-        'shipping_cost_usd': round(shipping, 2),
-        'duty_usd': round(duty, 2),
-        'transport_usd': round(transport, 2),
-        'charge_usd': round(charge, 2),
-        'clearance_usd': round(clearance, 2),
-        'total_usd': round(total_usd, 2),
-        'exchange_rate': round(ex_rate, 2),
+    data.update({
+        'total_usd': round(total_local / ex_rate, 2),
+        'exchange_rate': round(ex_rate, 4),
         'total_local': round(total_local, 2),
         'margin_percent': round(margin, 2),
         'selling_price': round(selling_price, 2),
-    }
+    })
+    return data
 
 
 def apply_part_form(part, form, rate):
@@ -368,9 +387,12 @@ def require_login():
     return None
 
 
+app.jinja_env.globals['EXTRA_COSTS'] = EXTRA_COSTS
+
+
 @app.template_filter('money')
 def money_filter(value):
-    symbol = getattr(get_settings(), 'currency_symbol', '') or ''
+    symbol = getattr(get_settings(), 'currency_symbol', '') or DEFAULT_CURRENCY
     amount = f"{(value or 0):,.2f}"
     return f"{symbol} {amount}" if symbol else amount
 
@@ -385,7 +407,7 @@ def inject_globals():
     ctx = {'cart_count': 0, 'currency_symbol': ''}
     if current_user.is_authenticated:
         ctx['cart_count'] = cart_count()
-        ctx['currency_symbol'] = get_settings().currency_symbol or ''
+        ctx['currency_symbol'] = get_settings().currency_symbol or DEFAULT_CURRENCY
     return ctx
 
 
@@ -653,7 +675,7 @@ def parts():
 @app.route('/parts/add', methods=['GET', 'POST'])
 def add_part():
     settings = get_settings()
-    default_rate = settings.exchange_rate or 1500.0
+    default_rate = settings.exchange_rate or DEFAULT_EXCHANGE_RATE
 
     if request.method == 'POST':
         item_number = request.form.get('item_number', '').strip()
@@ -692,7 +714,7 @@ def edit_part(part_id):
         flash('Part not found.', 'danger')
         return redirect(url_for('parts'))
 
-    default_rate = get_settings().exchange_rate or 1500.0
+    default_rate = get_settings().exchange_rate or DEFAULT_EXCHANGE_RATE
 
     if request.method == 'POST':
         item_number = request.form.get('item_number', '').strip()
@@ -1037,7 +1059,7 @@ def settings():
     row = get_settings()
 
     if request.method == 'POST':
-        row.exchange_rate = to_float(request.form.get('exchange_rate'), default=1500.0) or 1500.0
+        row.exchange_rate = to_float(request.form.get('exchange_rate'), default=DEFAULT_EXCHANGE_RATE) or DEFAULT_EXCHANGE_RATE
         row.company_name = request.form.get('company_name', '').strip() or 'GLOCEL'
         row.company_address = request.form.get('company_address', '').strip()
         row.company_phone = request.form.get('company_phone', '').strip()
