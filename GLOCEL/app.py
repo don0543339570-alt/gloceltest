@@ -3,6 +3,7 @@ import secrets
 import time
 from collections import defaultdict
 from datetime import datetime
+from decimal import ROUND_HALF_UP, Decimal
 from functools import wraps
 
 from dotenv import load_dotenv
@@ -60,6 +61,7 @@ login_manager.login_message_category = 'warning'
 PAYMENT_STATUSES = ['Paid', 'Unpaid']
 ROLES = ['admin', 'staff']
 DEFAULT_CURRENCY = 'GH₵'
+PHONE_COUNTRY_CODE = '233'  # Ghana; used to turn local 0XX numbers into WhatsApp links
 DEFAULT_EXCHANGE_RATE = 15.0  # GH₵ per USD for new installs; set the real rate in Settings
 # Extra landed costs that can be paid in USD or local currency.
 # (amount column, currency column, label). Amounts stay in the original *_usd columns.
@@ -255,6 +257,11 @@ def now_str():
     return datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
 
+def round_money(value):
+    """Round half-up to 2 decimals (Python's round() would turn 250.625 into 250.62)."""
+    return float(Decimal(str(value or 0)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP))
+
+
 def to_float(value, default=0.0, minimum=0.0):
     try:
         number = float(value)
@@ -300,12 +307,12 @@ def calc_costs(form, rate=None):
     margin = to_float(form.get('margin_percent'))
     ex_rate = to_float(form.get('exchange_rate'), default=0) or to_float(rate, default=DEFAULT_EXCHANGE_RATE) or DEFAULT_EXCHANGE_RATE
 
-    data = {'price_usd': round(price_usd, 2)}
+    data = {'price_usd': round_money(price_usd)}
     extras_usd = extras_local = 0.0
     for amount_col, currency_col, _ in EXTRA_COSTS:
         amount = to_float(form.get(amount_col))
         currency = form.get(currency_col) if form.get(currency_col) in COST_CURRENCIES else 'USD'
-        data[amount_col] = round(amount, 2)
+        data[amount_col] = round_money(amount)
         data[currency_col] = currency
         if currency == 'LOCAL':
             extras_local += amount
@@ -315,11 +322,11 @@ def calc_costs(form, rate=None):
     total_local = (price_usd + extras_usd) * ex_rate + extras_local
     selling_price = total_local * (1 + margin / 100.0)
     data.update({
-        'total_usd': round(total_local / ex_rate, 2),
+        'total_usd': round_money(total_local / ex_rate),
         'exchange_rate': round(ex_rate, 4),
-        'total_local': round(total_local, 2),
-        'margin_percent': round(margin, 2),
-        'selling_price': round(selling_price, 2),
+        'total_local': round_money(total_local),
+        'margin_percent': round_money(margin),
+        'selling_price': round_money(selling_price),
     })
     return data
 
@@ -395,6 +402,17 @@ def money_filter(value):
     symbol = getattr(get_settings(), 'currency_symbol', '') or DEFAULT_CURRENCY
     amount = f"{(value or 0):,.2f}"
     return f"{symbol} {amount}" if symbol else amount
+
+
+@app.template_filter('wa_number')
+def wa_number_filter(phone):
+    """Digits for a wa.me link, adding the country code to local numbers (0245550100 -> 233245550100)."""
+    digits = ''.join(ch for ch in (phone or '') if ch.isdigit())
+    if digits.startswith('00'):
+        digits = digits[2:]
+    elif digits.startswith('0'):
+        digits = PHONE_COUNTRY_CODE + digits[1:]
+    return digits
 
 
 @app.template_filter('usd')
@@ -845,7 +863,7 @@ def new_sale():
                 db.session.rollback()
                 flash(f'Not enough stock for {part.name}. Available: {part.stock_quantity}', 'danger')
                 return redirect(url_for('new_sale'))
-            line_total = round(part.selling_price * qty, 2)
+            line_total = round_money(part.selling_price * qty)
             subtotal += line_total
             items.append((part, qty, line_total))
 
@@ -864,10 +882,10 @@ def new_sale():
             customer_phone=request.form.get('customer_phone', '').strip(),
             customer_email=request.form.get('customer_email', '').strip(),
             sale_date=now_str(),
-            subtotal=round(subtotal, 2),
-            tax=round(tax, 2),
-            discount=round(discount, 2),
-            total_amount=round(total_amount, 2),
+            subtotal=round_money(subtotal),
+            tax=round_money(tax),
+            discount=round_money(discount),
+            total_amount=round_money(total_amount),
             payment_status=status,
             notes=request.form.get('notes', '').strip(),
             created_by=current_user.username,
@@ -1024,7 +1042,7 @@ def customer_detail():
 def scan():
     cart = get_cart()
     subtotal = sum(it['unit_price'] * it['qty'] for it in cart.values())
-    return render_template('scan.html', cart=cart, subtotal=round(subtotal, 2))
+    return render_template('scan.html', cart=cart, subtotal=round_money(subtotal))
 
 
 @app.route('/api/part/lookup/<path:item_number>')
