@@ -1,0 +1,288 @@
+{% extends 'base.html' %}
+{% block title %}Add parts - GLOCEL{% endblock %}
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1><i class="bi bi-plus-square"></i> Add parts (batch)</h1>
+        <div class="sub">Enter all items from one order. Shared costs are dispersed across items by item cost.</div>
+    </div>
+    <a href="{{ url_for('parts') }}" class="btn btn-outline-secondary d-none d-md-inline-block">Back to parts</a>
+</div>
+
+<form method="post" id="batchForm">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <!-- 1. Items -->
+    <div class="card mb-3">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span><i class="bi bi-list-ul"></i> Items ordered</span>
+            <button type="button" class="btn btn-sm btn-outline-primary" id="addRowBtn"><i class="bi bi-plus"></i> Add item</button>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-sm mb-0 align-middle" id="itemsTable">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="min-width:120px">Item no. *</th>
+                            <th style="min-width:140px">Name *</th>
+                            <th>Category</th>
+                            <th>Supplier</th>
+                            <th style="min-width:110px">Unit cost (USD)</th>
+                            <th style="min-width:110px">Line total</th>
+                            <th style="min-width:80px">Qty</th>
+                            <th style="min-width:80px">Reorder</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="itemsBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. Order-level shared costs -->
+    <div class="card mb-3">
+        <div class="card-header"><i class="bi bi-truck"></i> Order-level costs (dispersed across items)</div>
+        <div class="card-body row g-3">
+            <div class="col-12 col-md-6">
+                <label class="form-label" for="exchange_rate">1 USD = ? {{ currency_symbol }}</label>
+                <input id="exchange_rate" type="number" inputmode="decimal" name="exchange_rate" class="form-control calc" step="0.0001" min="0" value="{{ default_rate }}">
+            </div>
+            <div class="col-12 col-md-6">
+                <label class="form-label" for="supplier_global">Supplier (default for all items)</label>
+                <input id="supplier_global" name="supplier_global" class="form-control" placeholder="optional">
+            </div>
+            {% for field, currency_field, label in EXTRA_COSTS %}
+            <div class="col-12 col-sm-6">
+                <label class="form-label" for="shared_{{ field }}">{{ label }} (total for order)</label>
+                <div class="input-group">
+                    <select name="shared_{{ currency_field }}" id="shared_{{ currency_field }}" class="form-select calc cost-currency" aria-label="{{ label }} currency">
+                        <option value="USD" selected>$</option>
+                        <option value="LOCAL">{{ currency_symbol }}</option>
+                    </select>
+                    <input id="shared_{{ field }}" type="number" inputmode="decimal" name="shared_{{ field }}" class="form-control calc" step="0.01" min="0" value="0">
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- 3. Cost of sale (dispersed) -->
+    <div class="card mb-3">
+        <div class="card-header"><i class="bi bi-calculator"></i> Cost of sale (dispersed landed cost per item)</div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-sm mb-0 align-middle" id="costTable">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Item</th>
+                            <th>Unit landed cost ({{ currency_symbol }})</th>
+                            <th>Total landed cost ({{ currency_symbol }})</th>
+                        </tr>
+                    </thead>
+                    <tbody id="costBody"></tbody>
+                </table>
+            </div>
+            <div class="p-2 small text-muted">Computed from the order costs above, dispersed by item cost.</div>
+        </div>
+    </div>
+
+    <!-- 4. Selling price -->
+    <div class="card mb-3">
+        <div class="card-header"><i class="bi bi-tag"></i> Selling price</div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-sm mb-0 align-middle" id="sellTable">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Item</th>
+                            <th style="min-width:90px">Margin %</th>
+                            <th style="min-width:90px">WHT %</th>
+                            <th style="min-width:120px">Withholding cost ({{ currency_symbol }})</th>
+                            <th style="min-width:120px">Selling price ({{ currency_symbol }})</th>
+                        </tr>
+                    </thead>
+                    <tbody id="sellBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="sticky-actions d-flex gap-2 justify-content-end">
+        <a href="{{ url_for('parts') }}" class="btn btn-outline-secondary">Cancel</a>
+        <button type="submit" class="btn btn-success flex-grow-1 flex-md-grow-0"><i class="bi bi-save"></i> Save parts</button>
+    </div>
+</form>
+
+<template id="itemRowTemplate">
+<tr class="item-row">
+    <td><input name="item_number[]" class="form-control form-control-sm" required placeholder="ITEM-001"></td>
+    <td><input name="name[]" class="form-control form-control-sm" required placeholder="Part name"></td>
+    <td><input name="category[]" class="form-control form-control-sm"></td>
+    <td><input name="supplier[]" class="form-control form-control-sm"></td>
+    <td><input name="price_usd[]" type="number" inputmode="decimal" step="0.01" min="0" class="form-control form-control-sm calc-row" value="0"></td>
+    <td><input name="line_cost[]" type="number" inputmode="decimal" step="0.01" min="0" class="form-control form-control-sm calc-row" value="0"></td>
+    <td><input name="quantity[]" type="number" inputmode="numeric" step="1" min="1" class="form-control form-control-sm calc-row" value="1"></td>
+    <td><input name="reorder_level[]" type="number" inputmode="numeric" step="1" min="0" class="form-control form-control-sm" value="5"></td>
+    <td><button type="button" class="btn btn-sm btn-outline-danger remove-row"><i class="bi bi-x"></i></button></td>
+</tr>
+</template>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function(){
+    const itemsBody = document.getElementById('itemsBody');
+    const costBody = document.getElementById('costBody');
+    const sellBody = document.getElementById('sellBody');
+    const itemTpl = document.getElementById('itemRowTemplate');
+
+    function escapeHtml(s){ return (s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+    function addRow(){
+        // items row
+        const tr = itemTpl.content.cloneNode(true);
+        itemsBody.appendChild(tr);
+        // selling price row
+        const sellTr = document.createElement('tr');
+        sellTr.innerHTML = `
+            <td class="small text-muted item-label">Item</td>
+            <td><input name="margin_percent[]" type="number" inputmode="decimal" step="0.01" min="0" class="form-control form-control-sm calc-row" value="20"></td>
+            <td><input name="wht_percent[]" type="number" inputmode="decimal" step="0.01" min="0" class="form-control form-control-sm calc-row" value="3"></td>
+            <td><input name="withholding_cost[]" type="number" inputmode="decimal" step="0.01" min="0" class="form-control form-control-sm calc-row" value="0"></td>
+            <td class="amount sell-price">-</td>
+        `;
+        sellBody.appendChild(sellTr);
+        // cost row
+        const costTr = document.createElement('tr');
+        costTr.innerHTML = `
+            <td class="small text-muted item-label">Item</td>
+            <td class="amount cost-unit">-</td>
+            <td class="amount cost-total">-</td>
+        `;
+        costBody.appendChild(costTr);
+        syncLabels();
+        recalc();
+    }
+
+    function removeRow(btn){
+        const row = btn.closest('tr');
+        const idx = Array.from(itemsBody.querySelectorAll('tr')).indexOf(row);
+        if (itemsBody.querySelectorAll('tr').length <= 1) return;
+        itemsBody.deleteRow(idx);
+        costBody.deleteRow(idx);
+        sellBody.deleteRow(idx);
+        syncLabels();
+        recalc();
+    }
+
+    itemsBody.addEventListener('click', e => {
+        if (e.target.closest('.remove-row')) removeRow(e.target.closest('.remove-row'));
+    });
+
+    // start with 3 rows
+    for (let i=0;i<3;i++) addRow();
+
+    function syncLabels(){
+        const itemRows = itemsBody.querySelectorAll('tr');
+        itemRows.forEach((tr, i) => {
+            const nameInput = tr.querySelector('input[name="name[]"]');
+            const label = (nameInput && nameInput.value.trim()) || (tr.querySelector('input[name="item_number[]"]').value.trim()) || ('Item ' + (i+1));
+            const costRow = costBody.querySelectorAll('tr')[i];
+            const sellRow = sellBody.querySelectorAll('tr')[i];
+            if (costRow) costRow.querySelector('.item-label').textContent = label;
+            if (sellRow) sellRow.querySelector('.item-label').textContent = label;
+        });
+    }
+
+    function g(id){ const el = document.getElementById(id); return el ? (parseFloat(el.value) || 0) : 0; }
+
+    function recalc(){
+        const itemRows = itemsBody.querySelectorAll('tr');
+        const exRate = g('exchange_rate') || 1;
+        // shared costs
+        const shared = {};
+        const sharedFields = {{ EXTRA_COSTS|map('first')|list|tojson }};
+        const sharedCurFields = {{ EXTRA_COSTS|map(attribute=1)|list|tojson }};
+        sharedFields.forEach((f, i) => {
+            const amt = g('shared_' + f);
+            const cur = document.getElementById('shared_' + sharedCurFields[i]).value;
+            shared[f] = {amt, cur};
+        });
+        const totalShared = {};
+        sharedFields.forEach(f => { totalShared[f] = (shared[f].amt || 0); });
+
+        // item costs
+        const items = [];
+        itemRows.forEach(tr => {
+            const unit = parseFloat(tr.querySelector('input[name="price_usd[]"]').value) || 0;
+            const qty = parseFloat(tr.querySelector('input[name="quantity[]"]').value) || 1;
+            items.push({unit, qty, total: unit*qty});
+        });
+        const totalItemCost = items.reduce((s,it)=>s+it.total,0);
+        const equalMode = totalItemCost <= 0;
+
+        // dispersion
+        items.forEach((it, i) => {
+            const weight = equalMode ? (1/items.length) : (it.total/totalItemCost);
+            // landed cost per unit in local
+            let usd = it.unit, local = 0;
+            sharedFields.forEach(f => {
+                const {amt, cur} = shared[f];
+                const share = weight * amt;
+                const perUnit = share / it.qty;
+                if (cur === 'LOCAL') local += perUnit; else usd += perUnit;
+            });
+            const landedLocal = usd * exRate + local;
+            // cost table
+            const costRow = costBody.querySelectorAll('tr')[i];
+            if (costRow){
+                costRow.querySelector('.cost-unit').textContent = landedLocal.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+                costRow.querySelector('.cost-total').textContent = (landedLocal*it.qty).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+            }
+            // selling price
+            const sellRow = sellBody.querySelectorAll('tr')[i];
+            if (sellRow){
+                const margin = parseFloat(sellRow.querySelector('input[name="margin_percent[]"]').value) || 0;
+                const wht = parseFloat(sellRow.querySelector('input[name="wht_percent[]"]').value) || 0;
+                const withholding = parseFloat(sellRow.querySelector('input[name="withholding_cost[]"]').value) || 0;
+                const totalLocal = landedLocal + withholding;
+                const selling = totalLocal * (1 + margin/100) * (1 + wht/100);
+                sellRow.querySelector('.sell-price').textContent = selling.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+            }
+        });
+
+        syncLabels();
+    }
+
+    // sync unit cost <-> line total
+    itemsBody.addEventListener('input', e => {
+        const tr = e.target.closest('tr');
+        if (!tr) return;
+        const unit = tr.querySelector('input[name="price_usd[]"]');
+        const line = tr.querySelector('input[name="line_cost[]"]');
+        const qty = tr.querySelector('input[name="quantity[]"]');
+        const q = parseFloat(qty.value) || 1;
+        if (e.target === unit) {
+            line.value = ((parseFloat(unit.value)||0)*q).toFixed(2);
+        } else if (e.target === line) {
+            unit.value = (((parseFloat(line.value)||0)/q)).toFixed(4);
+        } else if (e.target === qty) {
+            line.value = ((parseFloat(unit.value)||0)*q).toFixed(2);
+        }
+        syncLabels();
+        recalc();
+    });
+
+    // recalc on order-level changes and selling inputs
+    document.querySelectorAll('.calc, .calc-row').forEach(el => {
+        el.addEventListener('input', recalc);
+        el.addEventListener('change', recalc);
+    });
+    // also name changes update labels
+    itemsBody.addEventListener('input', e => { if (e.target.name === 'name[]' || e.target.name === 'item_number[]') syncLabels(); });
+
+    recalc();
+})();
+</script>
+{% endblock %}

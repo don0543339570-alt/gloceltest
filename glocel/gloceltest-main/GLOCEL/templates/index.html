@@ -1,0 +1,108 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard - GLOCEL{% endblock %}
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1>Hi, {{ current_user.display_name }}</h1>
+        <div class="sub">Here's how the business is doing today.</div>
+    </div>
+    <div class="d-none d-lg-flex gap-2">
+        <a href="{{ url_for('new_sale') }}" class="btn btn-primary"><i class="bi bi-cart-plus"></i> New sale</a>
+        <a href="{{ url_for('add_part') }}" class="btn btn-outline-primary"><i class="bi bi-plus-lg"></i> Add part</a>
+    </div>
+</div>
+
+<div class="quick-actions mb-3 d-lg-none">
+    <a href="{{ url_for('new_sale') }}"><i class="bi bi-cart-plus"></i>New sale</a>
+    <a href="{{ url_for('scan') }}"><i class="bi bi-upc-scan"></i>Scan</a>
+    <a href="{{ url_for('add_part') }}"><i class="bi bi-plus-square"></i>Add part</a>
+    <a href="{{ url_for('customers') }}"><i class="bi bi-people"></i>Customers</a>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-6 col-lg-3">
+        <a href="{{ url_for('sales') }}" class="stat stat-green">
+            <div class="label">Sales today</div>
+            <div class="value">{{ sales_today|money }}</div>
+            <div class="hint">{{ count_today }} invoice{{ '' if count_today == 1 else 's' }}</div>
+            <i class="bi bi-graph-up-arrow bg-icon"></i>
+        </a>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="stat stat-blue">
+            <div class="label">This month</div>
+            <div class="value">{{ sales_month|money }}</div>
+            <div class="hint">All time {{ total_sales|money }}</div>
+            <i class="bi bi-calendar3 bg-icon"></i>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <a href="{{ url_for('sales', status='Unpaid') }}" class="stat stat-rose">
+            <div class="label">Unpaid</div>
+            <div class="value">{{ unpaid_total|money }}</div>
+            <div class="hint">{{ unpaid_count }} invoice{{ '' if unpaid_count == 1 else 's' }} to follow up</div>
+            <i class="bi bi-hourglass-split bg-icon"></i>
+        </a>
+    </div>
+    <div class="col-6 col-lg-3">
+        <a href="{{ url_for('reorder') }}" class="stat stat-amber">
+            <div class="label">Low stock</div>
+            <div class="value">{{ low_stock }}</div>
+            <div class="hint">of {{ total_parts }} parts &middot; stock value {{ inventory_value|money }}</div>
+            <i class="bi bi-exclamation-triangle bg-icon"></i>
+        </a>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-12 col-lg-7">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>Recent invoices</span>
+                <a href="{{ url_for('sales') }}" class="small text-decoration-none">See all</a>
+            </div>
+            <ul class="item-list">
+                {% for s in recent_sales %}
+                <li>
+                    <a class="row-link d-flex justify-content-between align-items-center gap-2" href="{{ url_for('view_invoice', sale_id=s.id) }}">
+                        <div class="text-truncate">
+                            <div class="item-title text-truncate">{{ s.customer_name or 'Walk-in customer' }}</div>
+                            <div class="item-meta">{{ s.invoice_number }} &middot; {{ s.sale_date[:16] }}</div>
+                        </div>
+                        <div class="text-end">
+                            <div class="amount">{{ s.total_amount|money }}</div>
+                            <span class="badge {{ 'bg-success' if s.payment_status == 'Paid' else 'bg-warning text-dark' }}">{{ s.payment_status }}</span>
+                        </div>
+                    </a>
+                </li>
+                {% else %}
+                <li class="text-center text-muted py-4">No invoices yet. <a href="{{ url_for('new_sale') }}">Make your first sale</a>.</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+    <div class="col-12 col-lg-5">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>Needs restocking</span>
+                <a href="{{ url_for('reorder') }}" class="small text-decoration-none">Reorder list</a>
+            </div>
+            <ul class="item-list">
+                {% for p in low_parts %}
+                <li>
+                    <a class="row-link d-flex justify-content-between align-items-center gap-2" href="{{ url_for('edit_part', part_id=p.id) }}">
+                        <div class="text-truncate">
+                            <div class="item-title text-truncate">{{ p.name }}</div>
+                            <div class="item-meta">{{ p.part_number }}</div>
+                        </div>
+                        <span class="badge bg-danger-subtle text-danger-emphasis">{{ p.stock_quantity }} left</span>
+                    </a>
+                </li>
+                {% else %}
+                <li class="text-center text-muted py-4"><i class="bi bi-check-circle text-success"></i> All stock levels are healthy.</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}

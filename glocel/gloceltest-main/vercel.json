@@ -1,0 +1,10 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "GLOCEL/app.py": {
+      "maxDuration": 60,
+      "includeFiles": "GLOCEL/templates/**",
+      "excludeFiles": "{**/__pycache__/**,**/*.pyc,**/.env,**/.env.*,**/*.db,**/*.sqlite3,*.zip,*.md}"
+    }
+  }
+}
