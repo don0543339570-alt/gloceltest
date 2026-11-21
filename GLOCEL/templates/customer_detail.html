@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% block title %}{{ customer.name }} - GLOCEL{% endblock %}
 {% block content %}
-{% set phone_digits = customer.phone|select('in', '0123456789')|join %}
+{% set phone_digits = customer.phone|wa_number %}
 <div class="page-head">
     <div>
         <a href="{{ url_for('customers') }}" class="small text-decoration-none"><i class="bi bi-arrow-left"></i> Customers</a>
