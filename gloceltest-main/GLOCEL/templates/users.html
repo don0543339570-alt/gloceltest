@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+{% block title %}Users - GLOCEL{% endblock %}
+{% block content %}
+<div class="page-head">
+    <div><h1><i class="bi bi-people-fill"></i> Users</h1><div class="sub">Who can sign in. Admins can also change settings, manage users and delete parts.</div></div>
+    <button class="btn btn-primary" data-bs-toggle="collapse" data-bs-target="#addUser"><i class="bi bi-person-plus"></i> Add user</button>
+</div>
+
+<div class="collapse mb-3" id="addUser">
+    <form method="post" action="{{ url_for('add_user') }}" class="card">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="card-body row g-3">
+            <div class="col-12 col-md-3"><label class="form-label">Full name</label><input name="full_name" class="form-control"></div>
+            <div class="col-12 col-md-3"><label class="form-label">Username</label><input name="username" class="form-control" autocapitalize="none" required minlength="3"></div>
+            <div class="col-12 col-md-3"><label class="form-label">Password</label><input type="password" name="password" class="form-control" autocomplete="new-password" required minlength="8"></div>
+            <div class="col-12 col-md-2"><label class="form-label">Role</label>
+                <select name="role" class="form-select">{% for r in roles %}<option value="{{ r }}" {% if r == 'staff' %}selected{% endif %}>{{ r|capitalize }}</option>{% endfor %}</select>
+            </div>
+            <div class="col-12 col-md-1 d-flex align-items-end"><button class="btn btn-success w-100">Add</button></div>
+        </div>
+    </form>
+</div>
+
+<div class="card">
+    <ul class="item-list">
+        {% for u in users %}
+        <li>
+            <div class="d-flex justify-content-between align-items-center gap-2">
+                <div class="d-flex align-items-center gap-3">
+                    <span class="avatar-btn d-inline-flex align-items-center justify-content-center">{{ u.display_name[:1]|upper }}</span>
+                    <div>
+                        <div class="item-title">{{ u.display_name }} {% if u.id == current_user.id %}<span class="badge bg-light text-dark border">You</span>{% endif %}</div>
+                        <div class="item-meta">@{{ u.username }} &middot; last sign-in {{ u.last_login or 'never' }}</div>
+                    </div>
+                </div>
+                <div class="text-end">
+                    <span class="badge {{ 'bg-primary' if u.role == 'admin' else 'bg-secondary' }}">{{ u.role|capitalize }}</span>
+                    {% if not u.active %}<span class="badge bg-danger">Disabled</span>{% endif %}
+                    <button class="btn btn-sm btn-outline-secondary ms-1" data-bs-toggle="collapse" data-bs-target="#edit{{ u.id }}"><i class="bi bi-pencil"></i></button>
+                </div>
+            </div>
+            <div class="collapse mt-3" id="edit{{ u.id }}">
+                <form method="post" action="{{ url_for('update_user', user_id=u.id) }}" class="row g-2">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="col-12 col-md-3"><label class="form-label">Full name</label><input name="full_name" class="form-control" value="{{ u.full_name }}"></div>
+                    <div class="col-6 col-md-2"><label class="form-label">Role</label>
+                        <select name="role" class="form-select">{% for r in roles %}<option value="{{ r }}" {% if r == u.role %}selected{% endif %}>{{ r|capitalize }}</option>{% endfor %}</select>
+                    </div>
+                    <div class="col-6 col-md-2"><label class="form-label">Status</label>
+                        <select name="active" class="form-select"><option value="1" {% if u.active %}selected{% endif %}>Active</option><option value="0" {% if not u.active %}selected{% endif %}>Disabled</option></select>
+                    </div>
+                    <div class="col-12 col-md-3"><label class="form-label">Reset password</label><input type="password" name="new_password" class="form-control" placeholder="Leave blank to keep" autocomplete="new-password" minlength="8"></div>
+                    <div class="col-12 col-md-2 d-flex align-items-end"><button class="btn btn-primary w-100">Save</button></div>
+                </form>
+            </div>
+        </li>
+        {% endfor %}
+    </ul>
+</div>
+{% endblock %}

@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+{% block title %}{{ customer.name }} - GLOCEL{% endblock %}
+{% block content %}
+{% set phone_digits = customer.phone|select('in', '0123456789')|join %}
+<div class="page-head">
+    <div>
+        <a href="{{ url_for('customers') }}" class="small text-decoration-none"><i class="bi bi-arrow-left"></i> Customers</a>
+        <h1 class="mt-1">{{ customer.name }}</h1>
+        <div class="sub">{{ [customer.phone, customer.email]|select|join(' · ') or 'No contact details' }}</div>
+    </div>
+    <div class="d-flex gap-2">
+        {% if customer.phone %}
+        <a href="tel:{{ customer.phone }}" class="btn btn-outline-primary"><i class="bi bi-telephone"></i> Call</a>
+        <a href="https://wa.me/{{ phone_digits }}" target="_blank" rel="noopener" class="btn btn-outline-success"><i class="bi bi-whatsapp"></i></a>
+        {% endif %}
+        <a href="{{ url_for('new_sale', customer_name=customer.name, customer_phone=customer.phone, customer_email=customer.email) }}" class="btn btn-primary"><i class="bi bi-cart-plus"></i> New sale</a>
+    </div>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-4"><div class="stat stat-blue"><div class="label">Spent</div><div class="value fs-6">{{ customer.total|money }}</div></div></div>
+    <div class="col-4"><div class="stat stat-slate"><div class="label">Invoices</div><div class="value fs-6">{{ customer.invoices }}</div></div></div>
+    <div class="col-4"><div class="stat {{ 'stat-rose' if customer.unpaid > 0 else 'stat-green' }}"><div class="label">Owes</div><div class="value fs-6">{{ customer.unpaid|money }}</div></div></div>
+</div>
+
+<div class="card">
+    <div class="card-header">Purchase history</div>
+    <ul class="item-list">
+        {% for s in sales %}
+        <li>
+            <a class="row-link d-flex justify-content-between align-items-center gap-2" href="{{ url_for('view_invoice', sale_id=s.id) }}">
+                <div class="text-truncate">
+                    <div class="item-title">{{ s.invoice_number }}</div>
+                    <div class="item-meta text-truncate">{{ s.sale_date[:16] }} &middot; {{ s.items|map(attribute='part_name')|join(', ') }}</div>
+                </div>
+                <div class="text-end">
+                    <div class="amount">{{ s.total_amount|money }}</div>
+                    <span class="badge {{ 'bg-success' if s.payment_status == 'Paid' else 'bg-warning text-dark' }}">{{ s.payment_status }}</span>
+                </div>
+            </a>
+        </li>
+        {% endfor %}
+    </ul>
+</div>
+{% endblock %}

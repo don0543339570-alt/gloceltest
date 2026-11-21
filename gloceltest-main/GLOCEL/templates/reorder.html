@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+{% block title %}Reorder list - GLOCEL{% endblock %}
+{% block content %}
+<div class="page-head">
+    <div><h1><i class="bi bi-arrow-repeat"></i> Reorder list</h1><div class="sub">Parts at or below their reorder level, grouped by supplier.</div></div>
+    {% if parts %}<button onclick="window.print()" class="btn btn-outline-secondary no-print"><i class="bi bi-printer"></i> Print</button>{% endif %}
+</div>
+
+{% if parts %}
+<div class="card">
+    <ul class="item-list">
+        {% for p in parts %}
+        {% set needed = [(p.reorder_level * 2) - p.stock_quantity, 0]|max %}
+        {% if loop.first or p.supplier != loop.previtem.supplier %}
+        <li class="bg-light py-2"><span class="small fw-semibold text-uppercase text-muted"><i class="bi bi-truck"></i> {{ p.supplier or 'No supplier set' }}</span></li>
+        {% endif %}
+        <li>
+            <div class="d-flex justify-content-between align-items-start gap-2">
+                <a class="row-link text-truncate" href="{{ url_for('edit_part', part_id=p.id) }}">
+                    <div class="item-title text-truncate">{{ p.name }}</div>
+                    <div class="item-meta">{{ p.part_number }} &middot; reorder at {{ p.reorder_level }}</div>
+                </a>
+                <div class="text-end">
+                    <span class="badge bg-danger">{{ p.stock_quantity }} left</span>
+                    <div class="item-meta mt-1">Order <strong>{{ needed }}</strong> &middot; ~{{ (needed * (p.total_local or 0))|money }}</div>
+                </div>
+            </div>
+            <form action="{{ url_for('restock_part', part_id=p.id) }}" method="post" class="d-flex gap-1 mt-2 no-print">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="number" name="add_quantity" class="form-control form-control-sm" min="1" value="{{ needed or 1 }}" style="width:80px" aria-label="Quantity received">
+                <button class="btn btn-sm btn-outline-success"><i class="bi bi-box-arrow-in-down"></i> Mark received</button>
+            </form>
+        </li>
+        {% endfor %}
+    </ul>
+</div>
+{% else %}
+<div class="card"><div class="card-body text-center py-5 text-muted"><i class="bi bi-check-circle fs-1 text-success d-block mb-2"></i>All stock levels are healthy. No reorders needed.</div></div>
+{% endif %}
+{% endblock %}

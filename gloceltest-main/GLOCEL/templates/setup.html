@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+{% block title %}First-time setup - GLOCEL{% endblock %}
+{% block main %}
+<div class="auth-wrap">
+    <div class="card auth-card shadow-lg">
+        <div class="card-body p-4 p-sm-5">
+            <div class="text-center mb-4">
+                <img class="logo mb-2" src="{{ url_for('static', filename='icon.svg') }}" alt="GLOCEL">
+                <h1 class="h4 fw-bold mb-0">Welcome to GLOCEL</h1>
+                <div class="text-muted small">Create the first admin account. This page disappears once it's done.</div>
+            </div>
+            {% include '_flash.html' %}
+            <form method="post">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="mb-3">
+                    <label class="form-label">Your name</label>
+                    <input name="full_name" class="form-control" value="{{ request.form.get('full_name', '') }}" placeholder="e.g. Don">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Username</label>
+                    <input name="username" class="form-control" autocapitalize="none" autocomplete="username" value="{{ request.form.get('username', '') }}" required minlength="3">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Password</label>
+                    <input type="password" name="password" class="form-control" autocomplete="new-password" required minlength="8">
+                    <div class="form-text">At least 8 characters.</div>
+                </div>
+                <div class="mb-4">
+                    <label class="form-label">Confirm password</label>
+                    <input type="password" name="confirm_password" class="form-control" autocomplete="new-password" required minlength="8">
+                </div>
+                <button class="btn btn-primary btn-lg w-100">Create admin &amp; sign in</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
